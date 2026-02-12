@@ -1,0 +1,22 @@
+# Bỏ qua thư mục môi trường ảo
+venv/
+env/
+
+# Bỏ qua file dữ liệu nặng (Github giới hạn 100MB)
+data/
+*.csv
+*.xlsx
+*.json
+
+# Bỏ qua file model nặng
+models/
+*.pth
+*.h5
+
+# Bỏ qua file rác của Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Bỏ qua file cấu hình hệ thống
+.DS_Store
