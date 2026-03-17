@@ -1,22 +1,24 @@
-# Bỏ qua thư mục môi trường ảo
+# Python environments
 venv/
 env/
+.venv/
 
-# Bỏ qua file dữ liệu nặng (Github giới hạn 100MB)
-data/
-*.csv
-*.xlsx
-*.json
-
-# Bỏ qua file model nặng
-models/
-*.pth
-*.h5
-
-# Bỏ qua file rác của Python
+# Python cache
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# Bỏ qua file cấu hình hệ thống
+# Generated data/artifacts
+data/
+*.log
+
+# Model artifacts
+models/
+*.pth
+*.h5
+
+# OS files
 .DS_Store
+
+# Keep templates and extension configs trackable
+!url_collection_template.csv
