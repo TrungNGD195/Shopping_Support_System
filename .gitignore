@@ -3,14 +3,23 @@ venv/
 env/
 .venv/
 
+# Secrets
+.env
+
+# Generated data/artifacts
+data/
+*/data/
+*.csv
+*.json
+*.log
+
+# Legacy Code
+legacy_extension/
+
 # Python cache
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-
-# Generated data/artifacts
-data/
-*.log
 
 # Model artifacts
 models/
@@ -19,6 +28,3 @@ models/
 
 # OS files
 .DS_Store
-
-# Keep templates and extension configs trackable
-!url_collection_template.csv
