@@ -8,10 +8,14 @@ data/
 *.xlsx
 *.json
 
-# Bỏ qua file model nặng
+# Bỏ qua file model AI (PyTorch, TensorFlow, HuggingFace)
 models/
 *.pth
 *.h5
+*.safetensors
+checkpoint-*/
+runs/
+logs/
 
 # Bỏ qua file rác của Python
 __pycache__/

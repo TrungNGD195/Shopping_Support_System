@@ -1,8 +1,7 @@
 import re
 import unicodedata
-from underthesea import word_tokenize # Thư viện tách từ tiếng Việt
+from underthesea import word_tokenize
 
-# 1. Từ điển Teencode
 TEENCODE_DICT = {
     "k": "không", "ko": "không", "kh": "không", "khong": "không", "hok": "không",
     "sp": "sản phẩm", "san pham": "sản phẩm",
@@ -18,7 +17,7 @@ TEENCODE_DICT = {
     "vler": "rất", "lun": "luôn", "lunnn": "luôn"
 }
 
-# 2. Danh sách Stopwords (Chỉ lọc các từ đệm vô nghĩa, giữ lại từ mang cảm xúc)
+# 2. Danh sách Stopwords
 STOPWORDS = set([
     "thì", "là", "mà", "rằng", "thế", "này", "kia", "nọ", "vậy", 
     "nhé", "nha", "ạ", "ơi", "hả", "chứ", "đi"
@@ -28,21 +27,16 @@ def clean_text(text):
     if not isinstance(text, str):
         return ""
     
-    # Bước 1: Chữ thường & Chuẩn hóa Unicode
     text = text.lower()
     text = unicodedata.normalize('NFC', text)
     
-    # Bước 2: Regex xóa URL và Email (Làm trước khi xóa ký tự đặc biệt)
-    text = re.sub(r'http\S+|www\.\S+', '', text) # Xóa link bắt đầu bằng http hoặc www
-    text = re.sub(r'\S+@\S+', '', text)          # Xóa email dạng abc@gmail.com
+    text = re.sub(r'http\S+|www\.\S+', '', text)
+    text = re.sub(r'\S+@\S+', '', text)
     
-    # Bước 3: Gom ký tự lặp (VD: đẹpppp -> đẹp, nhaaaaa -> nha)
     text = re.sub(r'([a-zđăâêôơư])\1+', r'\1', text)
     
-    # Bước 4: Xóa ký tự đặc biệt, icon (Chỉ giữ chữ tiếng Việt, số và khoảng trắng)
     text = re.sub(r'[^\w\sđăâêôơưàảãáạằẳẵắặầẩẫấậèẻẽéẹềểễếệìỉĩíịòỏõóọồổỗốộờởỡớợùủũúụừửữứựỳỷỹýỵ]', ' ', text)
     
-    # Bước 5: Mapping Teencode & Xóa Stopwords
     words = text.split()
     cleaned_words = []
     for word in words:
