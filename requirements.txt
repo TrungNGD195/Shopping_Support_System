@@ -1,0 +1,22 @@
+# Data processing
+pandas
+numpy
+openpyxl
+
+# Crawler
+selenium
+webdriver-manager
+beautifulsoup4
+
+# AI & NLP
+torch
+transformers
+scikit-learn
+underthesea  # Hỗ trợ tiếng Việt tốt
+nltk
+
+# App & Visualization
+streamlit
+matplotlib
+seaborn
+plotly
