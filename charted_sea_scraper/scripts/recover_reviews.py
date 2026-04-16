@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BEARER_TOKEN = os.getenv("BEARER_TOKEN")
+BEARER_TOKEN = os.getenv("CHARTED_API_KEY")
 BASE_URL = "https://continuous-scraper.common.chartedapi.com/scraping-tasks/shopee"
 OUTPUT_DIR = "data/reviews"
 

@@ -13,11 +13,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BEARER_TOKEN = os.getenv("BEARER_TOKEN")
+BEARER_TOKEN = os.getenv("CHARTED_API_KEY")
 BASE_URL = "https://continuous-scraper.common.chartedapi.com/scraping-tasks"
 SCRAPER = "shopee"
 OUTPUT_DIR = "data/reviews"
-REVIEW_API_TEMPLATE = "https://shopee.vn/api/v2/item/get_ratings?shopid={shopid}&itemid={itemid}&limit=6&offset=0&type=0&filter=0"
+REVIEW_API_TEMPLATE = "https://shopee.vn/api/v2/item/get_ratings?shopid={shopid}&itemid={itemid}&limit=6&offset=0&type={type}&filter=0"
 
 MAX_PAGES = 500
 MAX_RESULTS = 3000
@@ -101,7 +101,9 @@ def poll_all_tasks(root_uuids, max_wait=900):
                 "uuids": ",".join(chunk), "includeAllFields": "false", "limit": 100
             }, timeout=30)
             if resp.status_code == 200:
-                all_root_tasks.extend(resp.json())
+                data = resp.json()
+                items = data.get("items", data) if isinstance(data, dict) else data
+                all_root_tasks.extend(items)
 
         pending = 0
         for t in all_root_tasks:
@@ -128,7 +130,9 @@ def poll_all_tasks(root_uuids, max_wait=900):
             "uuids": ",".join(chunk), "includeAllFields": "true", "limit": 200
         }, timeout=60)
         if resp.status_code == 200:
-            all_tasks.extend(resp.json())
+            data = resp.json()
+            items = data.get("items", data) if isinstance(data, dict) else data
+            all_tasks.extend(items)
         time.sleep(1)
 
     return all_tasks
@@ -186,16 +190,17 @@ def main():
         return
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    products = read_urls_from_csv("url_collection.csv")
+    products = read_urls_from_csv("data/products.csv")
     print(f"\n[INFO] {len(products)} products to crawl\n")
 
     # Build API URLs and map them to products
     api_urls = []
     url_to_product = {}
     for prod in products:
-        api_url = REVIEW_API_TEMPLATE.format(shopid=prod['shopid'], itemid=prod['itemid'])
-        api_urls.append(api_url)
-        url_to_product[api_url] = prod
+        for rating_type in [1, 2, 3, 4, 5]:
+            api_url = REVIEW_API_TEMPLATE.format(shopid=prod['shopid'], itemid=prod['itemid'], type=rating_type)
+            api_urls.append(api_url)
+            url_to_product[api_url] = prod
 
     # Phase 1: Submit in batches
     print("PHASE 1: Submitting tasks")
@@ -241,35 +246,50 @@ def main():
     total_reviews = 0
     results = []
 
+    # Map product to its tasks
+    prod_to_tasks = {}
     for uuid in all_root_uuids:
         prod = uuid_to_product.get(uuid, {})
-        tasks_for_product = task_groups.get(uuid, [])
-        reviews, summary = extract_reviews(tasks_for_product)
+        key = (prod.get('shopid'), prod.get('itemid'))
+        if key not in prod_to_tasks:
+            prod_to_tasks[key] = []
+        prod_to_tasks[key].extend(task_groups.get(uuid, []))
 
-        outfile = os.path.join(OUTPUT_DIR, f"reviews_{prod.get('shopid')}_{prod.get('itemid')}.json")
+    for prod in products:
+        key = (prod.get('shopid'), prod.get('itemid'))
+        if not key[0] or not key[1]:
+            continue
+            
+        tasks_for_product = prod_to_tasks.get(key, [])
+        reviews, summary = extract_reviews(tasks_for_product)
+        
+        # Deduplicate reviews by cmtid
+        unique_reviews = list({r["cmtid"]: r for r in reviews}.values())
+
+        outfile = os.path.join(OUTPUT_DIR, f"reviews_{key[0]}_{key[1]}.json")
         out = {
             "product": {
-                "shopid": prod.get("shopid"),
-                "itemid": prod.get("itemid"),
+                "shopid": key[0],
+                "itemid": key[1],
                 "category": prod.get("category"),
                 "original_url": prod.get("original_url"),
                 "note": prod.get("note")
             },
             "rating_summary": summary,
-            "total_reviews_crawled": len(reviews),
-            "reviews": reviews
+            "total_reviews_crawled": len(unique_reviews),
+            "reviews": unique_reviews
         }
         with open(outfile, 'w', encoding='utf-8') as f:
             json.dump(out, f, indent=2, ensure_ascii=False)
 
-        total_reviews += len(reviews)
-        mark = "✓" if reviews else "✗"
-        print(f"  {mark} {prod.get('itemid')}: {len(reviews)} reviews")
+        total_reviews += len(unique_reviews)
+        mark = "✓" if unique_reviews else "✗"
+        print(f"  {mark} {key[1]}: {len(unique_reviews)} reviews")
         results.append({
-            "shopid": prod.get("shopid"),
-            "itemid": prod.get("itemid"),
+            "shopid": key[0],
+            "itemid": key[1],
             "category": prod.get("category"),
-            "reviews_crawled": len(reviews),
+            "reviews_crawled": len(unique_reviews),
             "total_ratings": summary.get("rating_total", 0) if summary else 0
         })
 
@@ -283,7 +303,7 @@ def main():
         }, f, indent=2, ensure_ascii=False)
 
     print(f"\n{'=' * 60}")
-    print(f"DONE! {total_reviews} reviews from {len(all_root_uuids)} products")
+    print(f"DONE! {total_reviews} reviews from {len(products)} products")
     print(f"Saved to: {OUTPUT_DIR}/")
     print(f"{'=' * 60}")
 
