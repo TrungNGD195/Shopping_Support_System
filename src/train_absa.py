@@ -9,22 +9,27 @@ import os
 # 1. CHUẨN BỊ DỮ LIỆU (DUMMY DATA)
 # ==========================================
 # Dữ liệu này giả định đã được chạy qua hàm clean_text() của bạn (đã tách từ bằng dấu _)
+# ==========================================
+# 1. CHUẨN BỊ DỮ LIỆU (DUMMY DATA - CẬP NHẬT ĐỦ 4 CỘT)
+# ==========================================
 dummy_data = {
     'comment_clean': [
         "áo đẹp lắm vải mát", 
         "hàng fake mỏng dính", 
-        "giao_hàng siêu nhanh", 
+        "giao_hàng siêu nhanh shipper nhiệt_tình", 
         "chất_lượng bình_thường đúng giá_tiền", 
-        "form xấu rụng rốn", 
-        "xịn_sò đáng tiền mua nha"
+        "form xấu rụng rốn shop tư_vấn tệ", 
+        "xịn_sò đáng tiền mua nha đóng_gói kỹ"
     ],
-    'Quality': [2, 0, -1, 1, 0, 2], # Nhãn thực tế của cột Chất lượng
-    'Price': [-1, -1, -1, 1, -1, 2] # Nhãn thực tế của cột Giá cả
+    'Quality': [2, 0, -1, 1, 0, 2], 
+    'Price': [-1, -1, -1, 1, -1, 2],
+    'Delivery': [-1, -1, 2, -1, -1, 2],
+    'Service': [-1, -1, 2, -1, 0, -1]
 }
 df = pd.DataFrame(dummy_data)
 
 # CHỌN CỘT ĐỂ HUẤN LUYỆN (Chỉ cần đổi tên cột ở đây là train được mô hình khác)
-TARGET_COLUMN = 'Price'
+TARGET_COLUMN = 'Service'
 
 # --- BƯỚC ÉP KIỂU NHÃN (CỰC QUAN TRỌNG) ---
 # AI của HuggingFace bắt buộc nhãn phải bắt đầu từ 0 (0, 1, 2, 3)
