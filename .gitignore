@@ -1,12 +1,17 @@
-# Bỏ qua thư mục môi trường ảo
+# Python environments
 venv/
 env/
+.venv/
 
-# Bỏ qua file dữ liệu nặng (Github giới hạn 100MB)
+# Secrets
+.env
+
+# Generated data/artifacts
 data/
+*/data/
 *.csv
-*.xlsx
 *.json
+*.log
 
 # Bỏ qua file model AI (PyTorch, TensorFlow, HuggingFace)
 models/
@@ -16,11 +21,18 @@ models/
 checkpoint-*/
 runs/
 logs/
+# Legacy Code
+legacy_extension/
 
-# Bỏ qua file rác của Python
+# Python cache
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# Bỏ qua file cấu hình hệ thống
+# Model artifacts
+models/
+*.pth
+*.h5
+
+# OS files
 .DS_Store
