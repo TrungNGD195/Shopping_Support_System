@@ -20,3 +20,9 @@ streamlit
 matplotlib
 seaborn
 plotly
+
+# API Backend
+fastapi
+uvicorn
+pydantic
+requests
