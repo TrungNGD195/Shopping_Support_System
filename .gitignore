@@ -13,7 +13,7 @@ data/
 *.json
 *.log
 
-# Bỏ qua file model AI (PyTorch, TensorFlow, HuggingFace)
+# AI Models (PyTorch, HuggingFace)
 models/
 *.pth
 *.h5
@@ -21,6 +21,7 @@ models/
 checkpoint-*/
 runs/
 logs/
+
 # Legacy Code
 legacy_extension/
 
@@ -29,10 +30,9 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# Model artifacts
-models/
-*.pth
-*.h5
-
 # OS files
 .DS_Store
+
+# Node
+node_modules/
+dist/

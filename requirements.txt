@@ -7,22 +7,16 @@ openpyxl
 selenium
 webdriver-manager
 beautifulsoup4
+requests
 
 # AI & NLP
 torch
 transformers
 scikit-learn
-underthesea  # Hỗ trợ tiếng Việt tốt
-nltk
-
-# App & Visualization
-streamlit
-matplotlib
-seaborn
-plotly
+underthesea
+accelerate
 
 # API Backend
 fastapi
 uvicorn
 pydantic
-requests
