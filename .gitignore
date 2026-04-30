@@ -13,18 +13,23 @@ data/
 *.json
 *.log
 
+# AI Models (PyTorch, HuggingFace)
+models/
+*.pth
+*.h5
+*.safetensors
+checkpoint-*/
+runs/
+logs/
+
 # Legacy Code
 legacy_extension/
+archive_raw_data/
 
 # Python cache
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
-
-# Model artifacts
-models/
-*.pth
-*.h5
 
 # OS files
 .DS_Store
@@ -33,4 +38,7 @@ models/
 post_training_roadmap.md
 tiki_urls*.txt
 *.pdf
-archive_raw_data/
+
+# Node
+node_modules/
+dist/
