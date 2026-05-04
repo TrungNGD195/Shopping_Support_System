@@ -38,3 +38,9 @@ __pycache__/
 # Node
 node_modules/
 dist/
+
+# Process & Temp Files
+post_training_roadmap.md
+tiki_urls*.txt
+*.pdf
+archive_raw_data/
