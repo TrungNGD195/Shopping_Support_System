@@ -1,5 +1,8 @@
 from google import genai
 import os
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 class ReviewSummarizer:
     def __init__(self, api_key=None):
@@ -51,8 +54,11 @@ class ReviewSummarizer:
 
 if __name__ == "__main__":
     # BƯỚC 1: DÁN API KEY CỦA BẠN VÀO ĐÂY
-    API_KEY = "AIzaSyAHtaMW99Y9qMTLtsqEgvLZNY47Y28GXio"
-    
+    API_KEY = os.environ.get("GEMINI_API_KEY")
+    if not API_KEY:
+        print("Chua dat bien moi truong GEMINI_API_KEY. Thoat.")
+        exit(1)
+
     try:
         summarizer = ReviewSummarizer(api_key=API_KEY)
         
