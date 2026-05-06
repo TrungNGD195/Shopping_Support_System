@@ -56,7 +56,7 @@ if __name__ == "__main__":
     # BƯỚC 1: DÁN API KEY CỦA BẠN VÀO ĐÂY
     API_KEY = os.environ.get("GEMINI_API_KEY")
     if not API_KEY:
-        print("Chua dat bien moi truong GEMINI_API_KEY. Thoat.")
+        print("Chưa đặt biến môi trường GEMINI_API_KEY. Thoát.")
         exit(1)
 
     try:

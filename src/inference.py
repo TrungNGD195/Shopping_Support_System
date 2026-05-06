@@ -44,7 +44,8 @@ class ABSAPredictor:
         }
 
         self.models = {}
-        
+        self.mock_mode = False
+
         # 4. Nạp cả 4 mô hình lên RAM
         for aspect, path in self.model_paths.items():
             try:
@@ -57,6 +58,11 @@ class ABSAPredictor:
             except Exception as e:
                 safe_print(f"[WARNING] Chua tim thay hoac loi load mo hinh {aspect} tai {path}")
 
+        # Fallback: nếu không có model nào, dùng keyword-based mock
+        if not self.models:
+            self.mock_mode = True
+            safe_print("[INFO] Khong tim thay mo hinh nao. Chuyen sang che do MO MOCK (keyword-based).")
+
         # 5. Bộ từ điển dịch nhãn máy tính ra tiếng người cho dễ hiểu
         # Giả định lúc train bạn map: 0 -> -1, 1 -> 0, 2 -> 1, 3 -> 2
         self.label_map = {
@@ -66,8 +72,82 @@ class ABSAPredictor:
             3: {"label": 2,  "text": "🟢 Khen"}
         }
 
+    def _mock_predict(self, comment):
+        """Dự đoán mô phỏng bằng keyword matching khi chưa có model thật."""
+        lower = comment.lower()
+        result = {"original_text": comment, "aspects": {}}
+
+        # Detect concessive/overall-negative patterns:
+        # "Được cái X thôi chứ Y", "Tuy X nhưng Y", "Mặc dù X nhưng Y", "X nhưng mà Y"
+        # These mean the overall sentiment is negative despite mentioning positives.
+        concessive_patterns = [
+            "thôi chứ", "chứ chất lượng", "chứ không",
+            "tuy ", "tuyệt vời nhưng", "mặc dù",
+            "nhưng mà", "được cái", "được mỗi",
+        ]
+        strong_negative = [
+            "quá tệ", "tệ quá", "rác", "lừa đảo", "scam", "đồ đểu",
+            "hàng fake", "hàng nhái", "thất vọng", "không ngửi nổi",
+            "chộp giật", "né shop", "không bao giờ mua",
+        ]
+
+        has_concessive = any(p in lower for p in concessive_patterns)
+        has_strong_neg = any(p in lower for p in strong_negative)
+
+        # If comment has concessive pattern + strong negative → overall negative
+        # Suppress positive labels on all aspects in that case
+        overall_negative = has_concessive and has_strong_neg
+
+        keyword_rules = {
+            "Quality": {
+                "positive": ["đẹp", "tốt", "xịn", "chất", "mượt", "đẹp tuyệt vời", "tôn dáng", "thoải mái", "dày dặn", "xịn xò", "nguyên vẹn", "vượt xa mong đợi", "đồng tiền"],
+                "negative": ["xấu", "hỏng", "kém", "nhái", "mỏng", "ẩu", "chỉ thừa", "rách", "bí", "không ngửi nổi", "nilon", "thất vọng", "bị rách", "ố vàng"]
+            },
+            "Price": {
+                "positive": ["rẻ", "sale", "worth", "đáng đồng tiền", "giá tốt", "hời", "giá rẻ", "mềm"],
+                "negative": ["đắt", "giá đắt", "cắt cổ", "không đáng", "lừa", "đắt đỏ", "không ngửi nổi"]
+            },
+            "Delivery": {
+                "positive": ["nhanh", "hỏa tốc", "thần tốc", "1 ngày", "siêu nhanh", "nhanh gọn", "ship nhanh", "giao nhanh"],
+                "negative": ["chậm", "rùa bò", "lâu", "hơn 1 tuần", "giao sai", "móp méo", "hộp bị"]
+            },
+            "Service": {
+                "positive": ["nhiệt tình", "tư vấn", "thân thiện", "hỗ trợ", "dễ thương", "chu đáo", "shop chuẩn bị", "phục vụ tốt", "đổi shop hỗ trợ"],
+                "negative": ["không rep", "seen", "lồi lõm", "thái độ", "không thèm", "trả lời", "tệ", "chộp giật", "không chịu"]
+            }
+        }
+
+        for asp, rules in keyword_rules.items():
+            pos_hits = sum(1 for w in rules["positive"] if w in lower)
+            neg_hits = sum(1 for w in rules["negative"] if w in lower)
+
+            if overall_negative:
+                # Overall negative comment — positive mentions are backhanded
+                if neg_hits > 0:
+                    result["aspects"][asp] = {"label": 0, "text": "🔴 Chê"}
+                elif pos_hits > 0:
+                    # Mentioned positively but context is concessive → neutral at best
+                    result["aspects"][asp] = {"label": 1, "text": "🟡 Bình thường"}
+                else:
+                    result["aspects"][asp] = {"label": -1, "text": "⚪ Không nhắc tới"}
+            else:
+                if pos_hits > neg_hits:
+                    result["aspects"][asp] = {"label": 2, "text": "🟢 Khen"}
+                elif neg_hits > pos_hits:
+                    result["aspects"][asp] = {"label": 0, "text": "🔴 Chê"}
+                elif pos_hits > 0:
+                    result["aspects"][asp] = {"label": 1, "text": "🟡 Bình thường"}
+                else:
+                    result["aspects"][asp] = {"label": -1, "text": "⚪ Không nhắc tới"}
+
+        return result
+
     def predict_single_comment(self, comment):
         """Hàm đọc và chấm điểm 1 câu bình luận"""
+        # Nếu không có model thật, dùng mock
+        if self.mock_mode:
+            return self._mock_predict(comment)
+
         # Trạm 1: Làm sạch
         cleaned_text = clean_text(comment)
 
@@ -83,10 +163,10 @@ class ABSAPredictor:
                 outputs = model(**inputs)
                 logits = outputs.logits
                 predicted_idx = torch.argmax(logits, dim=1).item()
-                
+
                 # Dịch kết quả
                 result["aspects"][aspect] = self.label_map.get(predicted_idx, {"label": -99, "text": "Không xác định"})
-                
+
         return result
 
 # ==========================================
