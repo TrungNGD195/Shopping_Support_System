@@ -19,11 +19,11 @@ from summarizer import ReviewSummarizer
 
 def run_full_pipeline():
     print("=" * 60)
-    print("   BAT DAU CHAY PIPELINE AI DAY DU")
+    print("   BẮT ĐẦU CHẠY PIPELINE AI ĐẦY ĐỦ")
     print("=" * 60)
 
     # 1. READ DATA
-    print("\n[Buoc 1] Nap du lieu tu thu muc 'data'...")
+    print("\n[Bước 1] Nạp dữ liệu từ thư mục 'data'...")
     try:
         def read_csv_safe(path):
             with open(path, 'rb') as f:
@@ -36,13 +36,13 @@ def run_full_pipeline():
         n_neg = min(30, len(df_neg))
         sample_comments = df_pos['comment'].dropna().sample(n_pos).tolist() + df_neg['comment'].dropna().sample(n_neg).tolist()
         random.shuffle(sample_comments)
-        print(f"=> Da lay ngau nhien {len(sample_comments)} binh luan thuc te.")
+        print(f"=> Đã lấy ngẫu nhiên {len(sample_comments)} bình luận thực tế.")
     except Exception as e:
-        print(f"Loi doc file: {e}")
+        print(f"Lỗi đọc file: {e}")
         return
 
     # 2. LOAD MODEL & PREDICT
-    print("\n[Buoc 2] Khoi dong PhoBERT de cham diem...")
+    print("\n[Bước 2] Khởi động PhoBERT để chấm điểm...")
 
     model_dir = os.path.join(PROJECT_ROOT, "models")
     model_dirs = {
@@ -55,11 +55,11 @@ def run_full_pipeline():
     has_models = all(os.path.isdir(p) for p in model_dirs.values())
 
     if not has_models:
-        print("[CANH BAO] Khong tim thay mo hinh trong thu muc 'models/'.")
-        print("  Can 4 thu muc: quality_model, price_model, delivery_model, service_model")
-        print("  Hay train mo hinh tren Colab bang notebook colab_train_absa.ipynb")
-        print("  Sau do tai trained_models.zip ve va giai nen vao thu muc 'models/'.")
-        print("\n  [DEMO] Dung du lieu co dinh de minh hoa pipeline...\n")
+        print("[CẢNH BÁO] Không tìm thấy mô hình trong thư mục 'models/'.")
+        print("  Cần 4 thư mục: quality_model, price_model, delivery_model, service_model")
+        print("  Hãy train mô hình trên Colab bằng notebook colab_train_absa.ipynb")
+        print("  Sau đó tải trained_models.zip về và giải nén vào thư mục 'models/'.")
+        print("\n  [DEMO] Dùng dữ liệu cố định để minh họa pipeline...\n")
 
         # Hardcoded demo data (simulates model output)
         demo_results = []
@@ -76,17 +76,17 @@ def run_full_pipeline():
                 elif asp == "Service" and any(w in lower for w in ["shop", "tư vấn", "trả lời", "nhiệt tình", "rep", "hỗ trợ"]):
                     label = 2 if any(w in lower for w in ["nhiệt tình", "tư vấn"]) else 0
                 else:
-                    label = -1  # Khong nhac toi
+                    label = -1  # Không nhắc tới
                 result["aspects"][asp] = {"label": label, "text": str(label)}
             demo_results.append(result)
     else:
         # Use real src/inference.py ABSAPredictor
         predictor = ABSAPredictor()
         demo_results = []
-        print("Dang quet tung binh luan...")
+        print("Đang quét từng bình luận...")
         for i, c in enumerate(sample_comments):
             if i % 10 == 0 and i > 0:
-                print(f"... da quet {i}/{len(sample_comments)}")
+                print(f"... đã quét {i}/{len(sample_comments)}")
             demo_results.append(predictor.predict_single_comment(c))
 
     # 3. AGGREGATE
@@ -103,10 +103,10 @@ def run_full_pipeline():
                 che_dict[asp].append(result["original_text"])
 
     # 4. SUMMARIZE WITH GEMINI
-    print("\n[Buoc 3] Goi Gemini de viet tom tat...")
+    print("\n[Bước 3] Gọi Gemini để viết tóm tắt...")
     API_KEY = os.environ.get("GEMINI_API_KEY")
     if not API_KEY:
-        print("[CANH BAO] Chua dat bien moi truong GEMINI_API_KEY. Bo qua buoc tom tat.")
+        print("[CẢNH BÁO] Chưa đặt biến môi trường GEMINI_API_KEY. Bỏ qua bước tóm tắt.")
         has_summarizer = False
         API_KEY = None
 
@@ -115,17 +115,17 @@ def run_full_pipeline():
             summarizer = ReviewSummarizer(api_key=API_KEY)
             has_summarizer = True
         except Exception as e:
-            print(f"[CANH BAO] Khong khoi dong duoc Gemini: {e}")
+            print(f"[CẢNH BÁO] Không khởi động được Gemini: {e}")
             has_summarizer = False
     else:
         has_summarizer = False
 
     # 5. DISPLAY RESULTS
     print("\n" + "=" * 80)
-    print("KET QUA PHAN TICH DA KHIA CANH:")
+    print("KẾT QUẢ PHÂN TÍCH ĐA KHÍA CẠNH:")
     print("=" * 80)
 
-    vi_aspects = {'Quality': 'Chat luong', 'Price': 'Gia ca', 'Delivery': 'Giao hang', 'Service': 'Dich vu CSKH'}
+    vi_aspects = {'Quality': 'Chất lượng', 'Price': 'Giá cả', 'Delivery': 'Giao hàng', 'Service': 'Dịch vụ CSKH'}
     total_khen = 0
     total_che = 0
 
@@ -136,29 +136,29 @@ def run_full_pipeline():
         total_che += n_che
 
         print(f"\n--- [ {vi_aspects[asp].upper()} ] ---")
-        print(f"  Khen: {n_khen} | Che: {n_che}")
+        print(f"  Khen: {n_khen} | Chê: {n_che}")
 
         if has_summarizer and (khen_dict[asp] or che_dict[asp]):
             summary = summarizer.summarize(vi_aspects[asp], khen_dict[asp][:10], che_dict[asp][:10])
-            print(f"  Tom tat: {summary}")
+            print(f"  Tóm tắt: {summary}")
         elif khen_dict[asp] or che_dict[asp]:
             if khen_dict[asp]:
                 print(f"  Khen: {khen_dict[asp][0][:80]}...")
             if che_dict[asp]:
-                print(f"  Che:  {che_dict[asp][0][:80]}...")
+                print(f"  Chê:  {che_dict[asp][0][:80]}...")
         else:
-            print("  Khong co ai ban luan ve khia canh nay.")
+            print("  Không có ai bàn luận về khía cạnh này.")
 
     print("\n" + "=" * 80)
-    print("TONG HOP:")
+    print("TỔNG HỢP:")
     if total_khen > total_che:
-        verdict = "RAT DANG MUA"
+        verdict = "RẤT ĐÁNG MUA"
     elif total_che > total_khen:
-        verdict = "CAN CAN NHAC"
+        verdict = "CẦN CÂN NHẮC"
     else:
-        verdict = "PHAN VAN (TRUNG LAP)"
-    print(f"  Tong khen: {total_khen} | Tong che: {total_che}")
-    print(f"  Khuyen nghi: {verdict}")
+        verdict = "PHÂN VÂN (TRUNG LẬP)"
+    print(f"  Tổng khen: {total_khen} | Tổng chê: {total_che}")
+    print(f"  Khuyến nghị: {verdict}")
     print("=" * 80)
 
 
