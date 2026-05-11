@@ -18,9 +18,9 @@ ai_station = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global ai_station
-    print("[INFO] Đang nạp mô hình AI vào RAM. Quá trình này sẽ mất vài giây...")
+    print("[INFO] Dang nap mo hinh AI vao RAM...")
     ai_station = ABSAPredictor()
-    print("[INFO] Đã nạp thành công mô hình AI!")
+    print("[INFO] Da nap thanh cong mo hinh AI!")
     yield
     # Clean up (nếu cần)
     ai_station = None
@@ -94,18 +94,19 @@ def analyze_product(request: AnalyzeRequest):
         # Bóc tách kết quả cho từng khía cạnh
         for aspect, data in prediction["aspects"].items():
             if aspect not in result_data["aspects"]: continue
-            label_text = str(data.get('text', ''))
             
-            # Quy đổi nhãn AI
-            if "Khen" in label_text:
+            # Dùng label số (2=Khen, 1=Bình thường, 0=Chê, -1=Không nhắc tới)
+            label_val = data.get('label', -1)
+            
+            if label_val == 2:
                 result_data["aspects"][aspect]["stats"]["Khen"] += 1
                 result_data["aspects"][aspect]["highlights"]["positive"].append(cmt)
-            elif "Chê" in label_text:
+            elif label_val == 0:
                 result_data["aspects"][aspect]["stats"]["Chê"] += 1
                 result_data["aspects"][aspect]["highlights"]["negative"].append(cmt)
-            elif "Bình thường" in label_text:
+            elif label_val == 1:
                 result_data["aspects"][aspect]["stats"]["Bình thường"] += 1
-            else:
+            else:  # -1: Không nhắc tới
                 result_data["aspects"][aspect]["stats"]["Không nhắc tới"] += 1
 
     # 3. Tính toán Verdict tổng quan

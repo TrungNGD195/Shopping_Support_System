@@ -1,8 +1,13 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import time
+import sys
+import os
 
-# Tạm thời import hàm clean_text, nếu chưa có file này thì dùng hàm mộc
+# Đảm bảo import utils từ thư mục src/
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Import hàm clean_text đầy đủ (teencode, word_tokenize, etc.)
 try:
     from utils.text_processing import clean_text
 except ImportError:
@@ -32,10 +37,10 @@ class ABSAPredictor:
 
         # 3. Đường dẫn đến 4 "bộ não"
         self.model_paths = {
-            "Quality": "models/quality_model/checkpoint-6",
-            "Price": "models/price_model/checkpoint-6",
-            # "Delivery": "models/delivery_model/checkpoint-6",
-            # "Service": "models/service_model/checkpoint-6"
+            "Quality": "models/quality_model",
+            "Price": "models/price_model",
+            "Delivery": "models/delivery_model",
+            "Service": "models/service_model"
         }
 
         self.models = {}
@@ -105,7 +110,7 @@ if __name__ == "__main__":
     for c in test_comments:
         ket_qua = ai_station.predict_single_comment(c)
         
-        print(f"Khach noi: '{ket_qua['original_text']}'")
+        safe_print(f"Khach noi: '{ket_qua['original_text']}'")
         for aspect, data in ket_qua["aspects"].items():
-            print(f"   -> {aspect}: {data['text']}")
+            safe_print(f"   -> {aspect}: {data['text']}")
         print("-" * 40)

@@ -1,52 +1,28 @@
 import pandas as pd
 import torch
+import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trainer, TrainingArguments
 from torch.utils.data import Dataset
 import os
+import argparse
 
 # ==========================================
-# 1. CHUẨN BỊ DỮ LIỆU (DUMMY DATA)
+# 1. CẤU HÌNH & THAM SỐ
 # ==========================================
-# Dữ liệu này giả định đã được chạy qua hàm clean_text() của bạn (đã tách từ bằng dấu _)
-# ==========================================
-# 1. CHUẨN BỊ DỮ LIỆU (DUMMY DATA - CẬP NHẬT ĐỦ 4 CỘT)
-# ==========================================
-dummy_data = {
-    'comment_clean': [
-        "áo đẹp lắm vải mát", 
-        "hàng fake mỏng dính", 
-        "giao_hàng siêu nhanh shipper nhiệt_tình", 
-        "chất_lượng bình_thường đúng giá_tiền", 
-        "form xấu rụng rốn shop tư_vấn tệ", 
-        "xịn_sò đáng tiền mua nha đóng_gói kỹ"
-    ],
-    'Quality': [2, 0, -1, 1, 0, 2], 
-    'Price': [-1, -1, -1, 1, -1, 2],
-    'Delivery': [-1, -1, 2, -1, -1, 2],
-    'Service': [-1, -1, 2, -1, 0, -1]
-}
-df = pd.DataFrame(dummy_data)
+MODEL_NAME = "vinai/phobert-base-v2"
+ASPECTS = ['Quality', 'Price', 'Delivery', 'Service']
+LABEL_MAPPING = {-1: 0, 0: 1, 1: 2, 2: 3}
+REVERSE_LABEL_MAPPING = {v: k for k, v in LABEL_MAPPING.items()}
 
-# CHỌN CỘT ĐỂ HUẤN LUYỆN (Chỉ cần đổi tên cột ở đây là train được mô hình khác)
-TARGET_COLUMN = 'Service'
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions.argmax(-1)
+    f1 = f1_score(labels, preds, average='weighted')
+    acc = accuracy_score(labels, preds)
+    return {'accuracy': acc, 'f1': f1}
 
-# --- BƯỚC ÉP KIỂU NHÃN (CỰC QUAN TRỌNG) ---
-# AI của HuggingFace bắt buộc nhãn phải bắt đầu từ 0 (0, 1, 2, 3)
-# Ta phải dịch từ hệ thống của nhóm (-1, 0, 1, 2) sang hệ thống của máy
-label_mapping = {-1: 0, 0: 1, 1: 2, 2: 3}
-df['label'] = df[TARGET_COLUMN].map(label_mapping)
-
-# ==========================================
-# 2. KHỞI TẠO PHOVERT TỪ HUGGINGFACE
-# ==========================================
-model_name = "vinai/phobert-base-v2"
-print(f"⏳ Đang tải Tokenizer từ {model_name}...")
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-# ==========================================
-# 3. CHUYỂN ĐỔI DỮ LIỆU SANG ĐỊNH DẠNG TENSOR (PYTORCH)
-# ==========================================
 class ShoppingDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, max_len=128):
         self.texts = texts
@@ -60,8 +36,6 @@ class ShoppingDataset(Dataset):
     def __getitem__(self, item):
         text = str(self.texts[item])
         label = self.labels[item]
-
-        # Tokenizer sẽ băm câu văn thành các con số ma trận
         encoding = self.tokenizer(
             text,
             add_special_tokens=True,
@@ -71,57 +45,113 @@ class ShoppingDataset(Dataset):
             return_attention_mask=True,
             return_tensors='pt',
         )
-
         return {
             'input_ids': encoding['input_ids'].flatten(),
             'attention_mask': encoding['attention_mask'].flatten(),
             'labels': torch.tensor(label, dtype=torch.long)
         }
 
-# Chia tập Train/Test (80% học, 20% thi thử)
-train_texts, val_texts, train_labels, val_labels = train_test_split(
-    df['comment_clean'].tolist(), 
-    df['label'].tolist(), 
-    test_size=0.2, 
-    random_state=42
-)
+def train_aspect(aspect_name, df, tokenizer, epochs=3, batch_size=4, subset=None):
+    print(f"\n[INFO] Dang bat dau huan luyen cho khia canh: {aspect_name.upper()}")
+    
+    # Chuẩn bị dữ liệu cho khía cạnh này
+    temp_df = df[['cleaned_comment', aspect_name]].dropna()
+    temp_df = temp_df[temp_df[aspect_name].isin(LABEL_MAPPING.keys())]
+    
+    if subset:
+        temp_df = temp_df.sample(min(subset, len(temp_df)), random_state=42)
+        print(f"   - Su dung {len(temp_df)} mau test")
 
-train_dataset = ShoppingDataset(train_texts, train_labels, tokenizer)
-val_dataset = ShoppingDataset(val_texts, val_labels, tokenizer)
+    temp_df['label'] = temp_df[aspect_name].map(LABEL_MAPPING)
+    
+    train_texts, val_texts, train_labels, val_labels = train_test_split(
+        temp_df['cleaned_comment'].astype(str).tolist(), 
+        temp_df['label'].tolist(), 
+        test_size=0.1, 
+        random_state=42
+    )
 
-# ==========================================
-# 4. TẢI MÔ HÌNH VÀ CẤU HÌNH HUẤN LUYỆN
-# ==========================================
-print("⏳ Đang tải kiến trúc mạng nơ-ron PhoBERT...")
-# num_labels=4 vì chúng ta có 4 trạng thái (-1, 0, 1, 2)
-model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=4)
+    train_dataset = ShoppingDataset(train_texts, train_labels, tokenizer)
+    val_dataset = ShoppingDataset(val_texts, val_labels, tokenizer)
 
-# Tạo thư mục lưu model nếu chưa có
-output_dir = f'models/{TARGET_COLUMN.lower()}_model'
-os.makedirs(output_dir, exist_ok=True)
+    output_dir = f'models/{aspect_name.lower()}_model'
+    os.makedirs(output_dir, exist_ok=True)
 
-training_args = TrainingArguments(
-    output_dir=output_dir,                # Nơi lưu cục tạ (weights)
-    num_train_epochs=3,                   # Số lần lặp qua toàn bộ dữ liệu
-    per_device_train_batch_size=2,        # Số câu học cùng lúc (Máy yếu thì để 2 hoặc 4)
-    per_device_eval_batch_size=2,
-    eval_strategy="epoch",                # Thi thử sau mỗi vòng học
-    save_strategy="epoch",                # Lưu lại model sau mỗi vòng học
-    logging_dir='./logs',
-    load_best_model_at_end=True,          # Giữ lại phiên bản xịn nhất
-)
+    # Cấu hình huấn luyện tối ưu cho CPU/RAM thấp
+    training_args = TrainingArguments(
+        output_dir=output_dir,
+        num_train_epochs=epochs,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        gradient_accumulation_steps=4 if batch_size < 4 else 1,
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        logging_dir='./logs',
+        load_best_model_at_end=True,
+        save_total_limit=1,
+        fp16=torch.cuda.is_available(),
+    )
 
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=train_dataset,
-    eval_dataset=val_dataset,
-)
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=4)
+    
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=val_dataset,
+        compute_metrics=compute_metrics
+    )
 
-# ==========================================
-# 5. KÍCH HOẠT QUÁ TRÌNH HỌC
-# ==========================================
-if __name__ == "__main__":
-    print(f"🔥 Bắt đầu huấn luyện mô hình cho khía cạnh: {TARGET_COLUMN.upper()}")
     trainer.train()
-    print(f"✅ Hoàn tất! File trọng số đã được lưu an toàn tại thư mục '{output_dir}'")
+    trainer.save_model(output_dir)
+    tokenizer.save_pretrained(output_dir)
+    print(f"[SUCCESS] Da luu model {aspect_name} tai {output_dir}")
+
+def main():
+    parser = argparse.ArgumentParser(description="ABSA Training Script")
+    parser.add_argument("--aspect", type=str, default="all", help="Khía cạnh cần train (Quality, Price, Delivery, Service, all)")
+    parser.add_argument("--epochs", type=int, default=3, help="Số vòng lặp huấn luyện")
+    parser.add_argument("--batch", type=int, default=2, help="Kích thước batch (giảm nếu tràn RAM)")
+    parser.add_argument("--subset", type=int, default=None, help="Số lượng mẫu dùng để test nhanh")
+    args = parser.parse_args()
+
+    # 1. Tải dữ liệu
+    print("[INFO] Dang tai du lieu tu CSV...")
+    df_pos, df_neg = None, None
+    for enc in ['utf-8', 'utf-8-sig', 'latin-1']:
+        try:
+            if df_pos is None:
+                df_pos = pd.read_csv('data/auto_labeled_cleaned_positive_reviews.csv', encoding=enc)
+            if df_neg is None:
+                df_neg = pd.read_csv('data/auto_labeled_cleaned_negative_reviews.csv', encoding=enc)
+            print(f"[INFO] Tai thanh cong voi encoding: {enc}")
+            break
+        except Exception:
+            df_pos, df_neg = None, None
+            continue
+
+    if df_pos is None or df_neg is None:
+        print("[ERROR] Khong the doc file CSV voi bat ky encoding nao (utf-8, utf-8-sig, latin-1)")
+        return
+
+    try:
+        df = pd.concat([df_pos, df_neg], ignore_index=True)
+        print(f"[INFO] Tong so du lieu: {len(df)} dòng")
+    except Exception as e:
+        print(f"[ERROR] Loi ghep du lieu: {e}")
+        return
+
+    # 2. Tải Tokenizer
+    print(f"[INFO] Dang tai Tokenizer {MODEL_NAME}...")
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+    # 3. Huấn luyện
+    target_aspects = ASPECTS if args.aspect == "all" else [args.aspect]
+    for aspect in target_aspects:
+        if aspect not in ASPECTS:
+            print(f"⚠️ Khía cạnh '{aspect}' không hợp lệ. Bỏ qua.")
+            continue
+        train_aspect(aspect, df, tokenizer, epochs=args.epochs, batch_size=args.batch, subset=args.subset)
+
+if __name__ == "__main__":
+    main()
