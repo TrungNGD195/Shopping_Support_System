@@ -1,62 +1,152 @@
-# Project SSS
+# 🛒 Shopping Support System
 
-# PHẦN 1: TỔNG QUAN DỰ ÁN (PROJECT OVERVIEW)
+Hệ thống hỗ trợ mua sắm thông minh sử dụng AI, giúp phân tích cảm xúc (Khen/Chê) từ hàng ngàn bình luận của khách hàng trên các sàn TMĐT (Shopee, Lazada, Tiki). Hệ thống cung cấp Dashboard trực quan giúp người dùng đánh giá sản phẩm trước khi mua hàng.
 
-## 1. Tên dự án:
-**Shopping Support System (Hệ thống hỗ trợ mua sắm thông minh)**
+## 👥 Thành viên nhóm
+* **Nguyễn Gia Đức Trung - B23DCVT423:** AI Core (PhoBERT), Text Preprocessing & Frontend (React)
+* **Bế Quốc Khánh - B23DCCE049:** Data Crawler (Charted Sea API), Data Aggregation & Backend Logic
 
-## 2. Mục tiêu dự án:
-Xây dựng một hệ thống hỗ trợ ra quyết định mua hàng bằng cách tự động thu thập, phân tích và tóm tắt bình luận từ các sàn thương mại điện tử (Shopee, Lazada, Tiki...). Hệ thống giúp người dùng tiết kiệm thời gian đọc hàng trăm comment bằng cách cung cấp bảng tóm tắt ưu/nhược điểm theo tiêu chí cụ thể.
+## 🛠 Công nghệ sử dụng
 
-## 3. Luồng xử lý nghiệp vụ (Business Flow):
+| Thành phần | Công nghệ |
+|---|---|
+| **Backend** | FastAPI, Uvicorn, Pydantic |
+| **Frontend** | React 19, Vite, Tailwind CSS v4, Recharts |
+| **AI/NLP** | PyTorch, HuggingFace Transformers, PhoBERT v2 |
+| **Tiền xử lý** | Underthesea (Word Segmentation), Regex, Teencode Dictionary |
+| **Crawler** | Charted Sea API, Selenium |
+| **Ngôn ngữ** | Python 3.9+, JavaScript (ES Modules) |
 
-- **Bước 1: Tiếp nhận Input (Đầu vào)**
-    - Người dùng cung cấp đường dẫn (Link/URL) trực tiếp của một sản phẩm trên các sàn TMĐT (Shopee, Lazada, Tiki...) vào hệ thống.
-- **Bước 2: Thu thập dữ liệu (Crawling)**
-    - Truy cập vào đường link sản phẩm đã nhận ở Bước 1.
-    - Tự động lấy các thông tin: Tên sản phẩm, Giá, Mô tả sản phẩm, Hình ảnh chính, Toàn bộ bình luận/đánh giá (reviews) của người mua.
-- **Bước 3: Tiền xử lý dữ liệu (Preprocessing)**
-    - Loại bỏ các comment rác, spam, icon vô nghĩa.
-    - Xử lý các ngôn ngữ teen code, viết tắt, sai chính tả (nếu cần).
-    - Phân loại comment theo tiêu chí (Chất lượng, Đóng gói, Giao hàng, Thái độ phục vụ...).
-- **Bước 4: Phân tích & Tóm tắt (Analysis & Summarization)**
-    - Sử dụng AI (LLM) để phân tích sắc thái (Sentiment Analysis): Tích cực, Tiêu cực, Trung lập cho từng khía cạnh.
-    - Rút trích các điểm chính: Ưu điểm nổi bật và Nhược điểm cần lưu ý.
-- **Bước 5: Tóm tắt (Summary Generator)**
-    - Hệ thống tự động tạo ra một đoạn tóm tắt ngắn gọn (khoảng 3-5 câu) tổng quan về sản phẩm dựa trên hàng trăm reviews.
-- **Bước 6: Hiển thị (Display/UI)**
-    - Trả về giao diện cho người dùng bảng tóm tắt so sánh trực quan, điểm số trung bình cho từng tiêu chí.
+## ⚙️ Luồng hoạt động (Pipeline)
 
----
+```
+[Người dùng nhập URL] → [Scraper thu thập bình luận] → [Text Preprocessing]
+         ↓
+[4 mô hình PhoBERT phân tích] → [API trả kết quả JSON] → [Dashboard hiển thị]
+```
 
-# PHẦN 2: PHÂN CHIA CÔNG VIỆC
+1. **Input:** Người dùng dán link sản phẩm vào giao diện Web.
+2. **Crawling:** Hệ thống thu thập bình luận từ sản phẩm đó.
+3. **Preprocessing:** Làm sạch văn bản, chuẩn hóa tiếng Việt, dịch teencode, tách từ.
+4. **AI Inference:** 4 mô hình PhoBERT chấm điểm cảm xúc cho 4 khía cạnh: *Chất lượng, Giá cả, Giao hàng, Dịch vụ*.
+5. **Output:** Dashboard hiển thị thống kê và tóm tắt ưu/nhược điểm.
 
-## Giai đoạn 1: Chuẩn bị & Thu thập dữ liệu
+## 📂 Cấu trúc dự án
 
-| Tên công việc | Chi tiết công việc | Kết quả đầu ra | Phụ trách | Deadline | Status | URL |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Setup Project & Git** | - Tạo repo Github. Cấu trúc folder: `/backend`, `/frontend`, `/data`, `/models`.<br>- Tạo `virtualenv`.<br>- Cài thư viện: `pandas`, `selenium`, `torch`, `transformers`, `streamlit`. | Link Github đã init cấu trúc. | Khánh, Trung | February 10, 2026 | **Done** | [Link Git](https://github.com/TrungNGD195/Shopping_Support_System.git) |
-| **Crawler cơ bản** | - Dùng Selenium hoặc Playwright giả lập trình duyệt.<br>- Logic: Truy cập link -> Scroll xuống cuối để load comment -> Click nút "Next page" -> Lặp lại.<br>- Lấy các trường: `author`, `rating`, `comment`, `time`. | Script `crawler.py` chạy ổn định, không bị crash khi mạng lag. | Khánh | February 16, 2026 | **Done** | |
-| **Thu thập Data** | - Thu thập 10,000 comments từ các shop mỹ phẩm, đồ điện tử trên Shopee.<br>- Lưu file `raw_reviews.csv`. | File CSV chứa 10k dòng dữ liệu. | Khánh | February 20, 2026 | **Done** | |
+```
+Shopping_Support_System/
+├── ai_core/                    # Scripts tiền xử lý & gán nhãn dữ liệu
+│   ├── auto_label.py           # Gán nhãn tự động cho dữ liệu thô
+│   ├── prepare_dataset.py      # Chuẩn bị dataset cho training
+│   └── preprocess_data.py      # Tiền xử lý dữ liệu gốc
+│
+├── data/                       # Dữ liệu huấn luyện (không đẩy lên Git)
+│   ├── auto_labeled_cleaned_positive_reviews.csv
+│   ├── auto_labeled_cleaned_negative_reviews.csv
+│   ├── positive_reviews.csv
+│   └── negative_reviews.csv
+│
+├── models/                     # Model weights đã train (không đẩy lên Git)
+│   ├── quality_model/          # Mô hình đánh giá Chất lượng
+│   ├── price_model/            # Mô hình đánh giá Giá cả
+│   ├── delivery_model/         # Mô hình đánh giá Giao hàng
+│   └── service_model/          # Mô hình đánh giá Dịch vụ
+│
+├── src/
+│   ├── api_server.py           # FastAPI REST API (Entry Point chính)
+│   ├── inference.py            # Class ABSAPredictor - nạp & chạy 4 model
+│   ├── scraper.py              # Thu thập bình luận từ URL sản phẩm
+│   ├── train_absa.py           # Script huấn luyện model PhoBERT
+│   │
+│   ├── crawler/                # Scripts thu thập dữ liệu từ sàn TMĐT
+│   │   ├── scripts/            # Các script crawl review
+│   │   └── API Reference _ Charted Sea.pdf
+│   │
+│   ├── frontend/               # React Web App (Vite + Tailwind v4)
+│   │   ├── src/
+│   │   │   ├── pages/
+│   │   │   │   ├── Home.jsx    # Trang chủ - nhập URL sản phẩm
+│   │   │   │   └── Dashboard.jsx  # Dashboard phân tích kết quả
+│   │   │   ├── App.jsx         # Router chính
+│   │   │   ├── main.jsx        # Entry point React
+│   │   │   └── index.css       # Design system (Tailwind v4)
+│   │   └── package.json
+│   │
+│   └── utils/                  # Module hỗ trợ xử lý ngôn ngữ
+│       ├── text_processing.py  # Hàm clean_text (teencode, tách từ, v.v.)
+│       └── teencode_miner.py   # Bộ từ điển teencode
+│
+├── .gitignore
+├── colab_train_absa.ipynb      # Notebook train model trên Google Colab (GPU)
+├── LABELING_GUIDE.md           # Quy tắc gán nhãn dữ liệu (-1, 0, 1, 2)
+├── README.md
+├── requirements.txt
+└── run_app.ps1                 # Script khởi động hệ thống (PowerShell)
+```
 
-## Giai đoạn 2: Xây dựng AI Core
+## 🚀 Hướng dẫn cài đặt & chạy
 
-| Tên công việc | Chi tiết công việc | Kết quả đầu ra | Phụ trách | Deadline | Status | URL |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Train Model ABSA (Quality & Price)** | - Label dữ liệu (Tích cực/Tiêu cực) cho 2 khía cạnh: Chất lượng, Giá cả.<br>- Finetune PhoBERT. | Model file `.bin` đạt Accuracy > 85% trên tập test. | Trung | March 15, 2026 | **Done** | |
-| **Train Model ABSA (Delivery & Service)** | - Label dữ liệu cho 2 khía cạnh: Giao hàng, Dịch vụ.<br>- Finetune PhoBERT. | Model file `.bin` đạt Accuracy > 82% trên tập test. | Trung | March 20, 2026 | **Done** | |
+### Yêu cầu
+- Python 3.9+
+- Node.js 18+
+- Model weights (đã train) trong thư mục `models/`
 
-## Giai đoạn 3: Tóm tắt & Tích hợp Logic
+### Cài đặt
 
-| Tên công việc | Chi tiết công việc | Kết quả đầu ra | Phụ trách | Deadline | Status | URL |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Tóm tắt (Summary)** | - Dùng GPT-3.5 hoặc VinAI-BART để tóm tắt các comment tiêu biểu của từng khía cạnh.<br>- Ghép các ý thành đoạn văn hoàn chỉnh. | Script `summarizer.py` nhận vào list comment -> Trả về 1 đoạn tóm tắt. | Khánh | April 1, 2026 | **Done** | |
+```bash
+# 1. Clone repo
+git clone https://github.com/TrungNGD195/Shopping_Support_System.git
+cd Shopping_Support_System
 
-## Giai đoạn 4: Web Frontend
+# 2. Cài đặt thư viện Python
+pip install -r requirements.txt
 
-| Tên công việc | Chi tiết công việc | Kết quả đầu ra | Phụ trách | Deadline | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Thiết kế luồng đa trang (Multi-page)** | Trang chủ (nhập Link) tinh gọn ở giữa. Trang Dashboard trải rộng, chia 4 Tabs (Chất lượng, Giá cả, Giao hàng, Dịch vụ) | | Trung | April 4, 2026 | **Done** |
-| **Code Home** | Dùng `st.set_page_config(layout="centered")`. Dùng `st.text_input` nhận Link. Dùng `st.session_state` để lưu trữ Link chuyển sang trang sau. | File `app.py` nhận link và có nút chuyển trang | Trung | April 4, 2026 | **Done** |
-| **Code Result** | Dùng `st.set_page_config(layout="wide")`. Kết hợp `st.tabs` và `st.columns(2)` để layout. Vẽ biểu đồ donut bằng `plotly.express`. Dùng `st.expander` để giấu/hiện comment bằng chứng. | File `1_phan_tich.py` hiển thị mượt màng với Mock Data | Trung | April 7, 2026 | **Done** |
-| **Integration (Ghép nối AI)** | Import trực tiếp file `src/inference.py` vào `1_phan_tich.py`. Dùng `st.spinner()` làm hiệu ứng chờ khi AI nạp model và chấm điểm dữ liệu. | Dashboard hiển thị số liệu thật từ kết quả dự đoán của PhoBERT | Trung | April 8, 2026 | **Done** |
+# 3. Cài đặt thư viện Frontend
+cd src/frontend && npm install && cd ../..
+```
+
+### Chạy hệ thống
+
+**Cách 1: Chạy tự động (PowerShell)**
+```powershell
+.\run_app.ps1
+```
+
+**Cách 2: Chạy thủ công**
+```bash
+# Terminal 1 - Backend (API)
+cd src && python api_server.py
+
+# Terminal 2 - Frontend (React)
+cd src/frontend && npm run dev
+```
+
+Sau khi khởi động:
+- 🌐 **Web App:** http://localhost:5173
+- 📡 **API Docs:** http://localhost:8000/docs
+
+### Huấn luyện model (Tùy chọn)
+
+Sử dụng Google Colab để huấn luyện nhanh trên GPU:
+1. Upload file `colab_train_absa.ipynb` lên [Google Colab](https://colab.research.google.com)
+2. Chọn Runtime → GPU (T4)
+3. Upload 2 file CSV từ thư mục `data/`
+4. Chạy tất cả các ô → Tải `trained_models.zip` về
+5. Giải nén vào thư mục `models/`
+
+Hoặc train trên máy local:
+```bash
+python src/train_absa.py --aspect Quality --batch 2
+python src/train_absa.py --aspect Price --batch 2
+python src/train_absa.py --aspect Delivery --batch 2
+python src/train_absa.py --aspect Service --batch 2
+```
+
+## 📊 Hệ thống nhãn ABSA
+
+| Giá trị | Ý nghĩa | Mô tả |
+|---------|---------|-------|
+| `-1` | Không nhắc tới | Bình luận không đề cập khía cạnh này |
+| `0` | Tiêu cực (Chê) | Khách hàng phàn nàn, không hài lòng |
+| `1` | Trung lập | Nhận xét bình thường, không rõ xu hướng |
+| `2` | Tích cực (Khen) | Khách hàng hài lòng, khen ngợi |
