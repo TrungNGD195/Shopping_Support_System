@@ -193,14 +193,25 @@ const Dashboard = () => {
         {/* Tab Content */}
         <div className="bg-surface border border-border rounded-xl shadow-card overflow-hidden animate-fade-in-up-delay-2">
 
-          {/* AI Summary */}
-          <div className="bg-background border-b border-border px-6 py-4 flex items-start gap-3">
-            <div className="bg-primary-50 p-2 rounded-lg mt-0.5">
-              <ShieldCheck className="w-4 h-4 text-primary-600" />
+          {/* AI Summary — Gemini-generated */}
+          <div className="relative bg-gradient-to-br from-primary-50/60 via-background to-primary-50/30 border-b border-border px-6 py-5">
+            <div className="flex items-start gap-3.5">
+              <div className="shrink-0 bg-primary-100 p-2 rounded-lg mt-0.5 shadow-sm">
+                <ShieldCheck className="w-4 h-4 text-primary-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-bold text-primary-600 uppercase tracking-wider">Gemini AI nhận xét</span>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse"></span>
+                </div>
+                <p className="text-sm text-text-primary leading-relaxed font-medium" style={{ textIndent: '1.5em' }}>
+                  {activeAspectData.summary}
+                </p>
+              </div>
             </div>
-            <div>
-              <div className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-1">AI nhận xét</div>
-              <div className="text-sm text-text-primary font-medium leading-relaxed">{activeAspectData.summary}</div>
+            {/* Decorative corner accent */}
+            <div className="absolute top-0 right-0 w-16 h-16 overflow-hidden rounded-tr-xl pointer-events-none">
+              <div className="absolute -top-8 -right-8 w-16 h-16 bg-primary-100/40 rotate-45"></div>
             </div>
           </div>
 
