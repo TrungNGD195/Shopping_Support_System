@@ -12,9 +12,12 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Import ABSAPredictor from src/inference.py (not ai_core/inference.py)
 from inference import ABSAPredictor
+
+# Import summarizer from ai_core/ (add its path after to avoid shadowing)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from summarizer import ReviewSummarizer
 
 def run_full_pipeline():
@@ -43,51 +46,21 @@ def run_full_pipeline():
 
     # 2. LOAD MODEL & PREDICT
     print("\n[Bước 2] Khởi động PhoBERT để chấm điểm...")
+    print("  Model: models/phobert-absa-final (aspect+comment pair)")
 
-    model_dir = os.path.join(PROJECT_ROOT, "models")
-    model_dirs = {
-        "Quality": os.path.join(model_dir, "quality_model"),
-        "Price": os.path.join(model_dir, "price_model"),
-        "Delivery": os.path.join(model_dir, "delivery_model"),
-        "Service": os.path.join(model_dir, "service_model"),
-    }
+    predictor = ABSAPredictor()
 
-    has_models = all(os.path.isdir(p) for p in model_dirs.values())
-
-    if not has_models:
-        print("[CẢNH BÁO] Không tìm thấy mô hình trong thư mục 'models/'.")
-        print("  Cần 4 thư mục: quality_model, price_model, delivery_model, service_model")
-        print("  Hãy train mô hình trên Colab bằng notebook colab_train_absa.ipynb")
-        print("  Sau đó tải trained_models.zip về và giải nén vào thư mục 'models/'.")
-        print("\n  [DEMO] Dùng dữ liệu cố định để minh họa pipeline...\n")
-
-        # Hardcoded demo data (simulates model output)
-        demo_results = []
-        for c in sample_comments:
-            result = {"original_text": c, "aspects": {}}
-            lower = c.lower()
-            for asp in ["Quality", "Price", "Delivery", "Service"]:
-                if asp == "Quality" and any(w in lower for w in ["đẹp", "tốt", "xịn", "chất", "mượt", "đẹp", "xấu", "hỏng", "kém", "nhái"]):
-                    label = 2 if any(w in lower for w in ["đẹp", "tốt", "xịn", "chất", "mượt"]) else 0
-                elif asp == "Price" and any(w in lower for w in ["giá", "đắt", "rẻ", "sale", "tiền", "worth"]):
-                    label = 2 if any(w in lower for w in ["rẻ", "sale", "worth"]) else 0
-                elif asp == "Delivery" and any(w in lower for w in ["giao", "ship", "nhanh", "chậm", "đóng gói"]):
-                    label = 2 if any(w in lower for w in ["nhanh", "hỏa tốc"]) else 0
-                elif asp == "Service" and any(w in lower for w in ["shop", "tư vấn", "trả lời", "nhiệt tình", "rep", "hỗ trợ"]):
-                    label = 2 if any(w in lower for w in ["nhiệt tình", "tư vấn"]) else 0
-                else:
-                    label = -1  # Không nhắc tới
-                result["aspects"][asp] = {"label": label, "text": str(label)}
-            demo_results.append(result)
+    if predictor.mock_mode:
+        print("[CẢNH BÁO] Không tìm thấy mô hình — dùng chế độ mock (keyword-based).")
+        print("  Cần giải nén models/phobert-absa-final.zip vào models/phobert-absa-final/")
     else:
-        # Use real src/inference.py ABSAPredictor
-        predictor = ABSAPredictor()
-        demo_results = []
-        print("Đang quét từng bình luận...")
-        for i, c in enumerate(sample_comments):
-            if i % 10 == 0 and i > 0:
-                print(f"... đã quét {i}/{len(sample_comments)}")
-            demo_results.append(predictor.predict_single_comment(c))
+        print("  Đã nạp mô hình ABSA thật. Bắt đầu phân tích...")
+
+    demo_results = []
+    for i, c in enumerate(sample_comments):
+        if i % 10 == 0 and i > 0:
+            print(f"  ... đã quét {i}/{len(sample_comments)}")
+        demo_results.append(predictor.predict_single_comment(c))
 
     # 3. AGGREGATE
     aspects = ['Quality', 'Price', 'Delivery', 'Service']
