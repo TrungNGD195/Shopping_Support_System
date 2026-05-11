@@ -9,6 +9,13 @@ except ImportError:
     # Hàm dự phòng nếu chưa nối file utils
     def clean_text(text): return text.lower().strip()
 
+def safe_print(text):
+    try:
+        # Ép kiểu encode bỏ qua các ký tự không được hỗ trợ trên Windows Console
+        print(str(text).encode('ascii', 'ignore').decode('ascii'))
+    except Exception:
+        pass
+
 class ABSAPredictor:
     """
     Class này đóng vai trò là Trạm Trí Tuệ. 
@@ -17,7 +24,7 @@ class ABSAPredictor:
     def __init__(self):
         # 1. Xác định thiết bị (Ưu tiên dùng Card đồ họa GPU nếu có, không thì chạy CPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"🚀 Đang khởi động AI trên thiết bị: {self.device}")
+        safe_print(f"[INFO] Dang khoi dong AI tren thiet bi: {self.device}")
 
         # 2. Load bộ phân giải từ vựng (Tokenizer) của PhoBERT
         # (Chỉ cần load 1 cái dùng chung cho cả 4 mô hình)
@@ -41,9 +48,9 @@ class ABSAPredictor:
                 model.to(self.device)
                 model.eval() # Chuyển sang chế độ Chấm điểm (Không học nữa)
                 self.models[aspect] = model
-                print(f"✅ Đã nạp thành công mô hình: {aspect}")
+                safe_print(f"[SUCCESS] Da nap thanh cong mo hinh: {aspect}")
             except Exception as e:
-                print(f"⚠️ Chưa tìm thấy hoặc lỗi load mô hình {aspect} tại {path}")
+                safe_print(f"[WARNING] Chua tim thay hoac loi load mo hinh {aspect} tai {path}")
 
         # 5. Bộ từ điển dịch nhãn máy tính ra tiếng người cho dễ hiểu
         # Giả định lúc train bạn map: 0 -> -1, 1 -> 0, 2 -> 1, 3 -> 2
@@ -73,7 +80,7 @@ class ABSAPredictor:
                 predicted_idx = torch.argmax(logits, dim=1).item()
                 
                 # Dịch kết quả
-                result["aspects"][aspect] = self.label_map.get(predicted_idx, "Unknown")
+                result["aspects"][aspect] = self.label_map.get(predicted_idx, {"label": -99, "text": "Không xác định"})
                 
         return result
 
@@ -82,10 +89,10 @@ class ABSAPredictor:
 # ==========================================
 if __name__ == "__main__":
     # Khởi tạo Trạm AI (Quá trình này tốn khoảng 5-10 giây)
-    print("⏳ Đang khởi động hệ thống...")
+    print("[INFO] Dang khoi dong he thong...")
     start_time = time.time()
     ai_station = ABSAPredictor()
-    print(f"⏱️ Khởi động xong trong {round(time.time() - start_time, 2)} giây!\n")
+    print(f"[INFO] Khoi dong xong trong {round(time.time() - start_time, 2)} giay!\n")
 
     # Dữ liệu test
     test_comments = [
@@ -94,11 +101,11 @@ if __name__ == "__main__":
     ]
 
     # Bắn dữ liệu vào cho AI đọc
-    print("🔍 BẮT ĐẦU PHÂN TÍCH:\n")
+    print("[INFO] BAT DAU PHAN TICH:\n")
     for c in test_comments:
         ket_qua = ai_station.predict_single_comment(c)
         
-        print(f"📝 Khách nói: '{ket_qua['original_text']}'")
+        print(f"Khach noi: '{ket_qua['original_text']}'")
         for aspect, data in ket_qua["aspects"].items():
-            print(f"   👉 {aspect}: {data['text']}")
+            print(f"   -> {aspect}: {data['text']}")
         print("-" * 40)
