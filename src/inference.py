@@ -63,12 +63,12 @@ class ABSAPredictor:
             self.mock_mode = True
             safe_print("[INFO] Chuyen sang che do MOCK (keyword-based).")
 
-        # 5. Label map cho mô hình ABSA: 0=Không nhắc tới, 1=Chê, 2=Bình thường, 3=Khen
+        # 5. Label map cho mô hình ABSA (theo Kaggle training: 0=Chê, 1=BT, 2=Khen, 3=Không nhắc tới)
         self.label_map = {
-            0: {"label": -1, "text": "⚪ Không nhắc tới"},
-            1: {"label": 0,  "text": "🔴 Chê"},
-            2: {"label": 1,  "text": "🟡 Bình thường"},
-            3: {"label": 2,  "text": "🟢 Khen"}
+            0: {"label": 0,  "text": "🔴 Chê"},
+            1: {"label": 1,  "text": "🟡 Bình thường"},
+            2: {"label": 2,  "text": "🟢 Khen"},
+            3: {"label": -1, "text": "⚪ Không nhắc tới"}
         }
 
     def _mock_predict(self, comment):
