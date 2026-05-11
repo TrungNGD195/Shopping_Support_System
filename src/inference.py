@@ -23,48 +23,47 @@ def safe_print(text):
 
 class ABSAPredictor:
     """
-    Class này đóng vai trò là Trạm Trí Tuệ. 
-    Nó sẽ nạp 4 mô hình vào RAM 1 lần duy nhất khi khởi tạo.
+    Class này đóng vai trò là Trạm Trí Tuệ.
+    Nạp 1 mô hình PhoBERT ABSA vào RAM, chạy 4 khía cạnh qua cùng 1 model.
     """
     def __init__(self):
-        # 1. Xác định thiết bị (Ưu tiên dùng Card đồ họa GPU nếu có, không thì chạy CPU)
+        # 1. Xác định thiết bị
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         safe_print(f"[INFO] Dang khoi dong AI tren thiet bi: {self.device}")
 
-        # 2. Load bộ phân giải từ vựng (Tokenizer) của PhoBERT
-        # (Chỉ cần load 1 cái dùng chung cho cả 4 mô hình)
-        self.tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-base", use_fast=False)
-
-        # 3. Đường dẫn đến 4 "bộ não"
-        self.model_paths = {
-            "Quality": "models/quality_model",
-            "Price": "models/price_model",
-            "Delivery": "models/delivery_model",
-            "Service": "models/service_model"
+        # 2. 4 khía cạnh cần đánh giá (aspect text gửi kèm comment cho model)
+        self.aspects = {
+            'Quality': 'chất lượng',
+            'Price': 'giá cả',
+            'Delivery': 'giao hàng',
+            'Service': 'dịch vụ'
         }
 
-        self.models = {}
+        # 3. Thử load mô hình ABSA từ models/phobert-absa-final
+        self.model = None
+        self.tokenizer = None
         self.mock_mode = False
 
-        # 4. Nạp cả 4 mô hình lên RAM
-        for aspect, path in self.model_paths.items():
+        model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "phobert-absa-final")
+        if os.path.isdir(model_path):
             try:
-                # use_safetensors=True để đọc chuẩn định dạng mới
-                model = AutoModelForSequenceClassification.from_pretrained(path, use_safetensors=True)
-                model.to(self.device)
-                model.eval() # Chuyển sang chế độ Chấm điểm (Không học nữa)
-                self.models[aspect] = model
-                safe_print(f"[SUCCESS] Da nap thanh cong mo hinh: {aspect}")
+                self.tokenizer = AutoTokenizer.from_pretrained(model_path, use_fast=False)
+                self.model = AutoModelForSequenceClassification.from_pretrained(model_path, use_safetensors=True)
+                self.model.to(self.device)
+                self.model.eval()
+                safe_print(f"[SUCCESS] Da nap mo hinh ABSA tu: {model_path}")
             except Exception as e:
-                safe_print(f"[WARNING] Chua tim thay hoac loi load mo hinh {aspect} tai {path}")
+                safe_print(f"[WARNING] Loi load mo hinh tu {model_path}: {e}")
+                self.model = None
+        else:
+            safe_print(f"[WARNING] Khong tim thay mo hinh tai {model_path}")
 
-        # Fallback: nếu không có model nào, dùng keyword-based mock
-        if not self.models:
+        # 4. Fallback: keyword-based mock
+        if not self.model:
             self.mock_mode = True
-            safe_print("[INFO] Khong tim thay mo hinh nao. Chuyen sang che do MO MOCK (keyword-based).")
+            safe_print("[INFO] Chuyen sang che do MOCK (keyword-based).")
 
-        # 5. Bộ từ điển dịch nhãn máy tính ra tiếng người cho dễ hiểu
-        # Giả định lúc train bạn map: 0 -> -1, 1 -> 0, 2 -> 1, 3 -> 2
+        # 5. Label map cho mô hình ABSA: 0=Không nhắc tới, 1=Chê, 2=Bình thường, 3=Khen
         self.label_map = {
             0: {"label": -1, "text": "⚪ Không nhắc tới"},
             1: {"label": 0,  "text": "🔴 Chê"},
@@ -151,21 +150,25 @@ class ABSAPredictor:
         # Trạm 1: Làm sạch
         cleaned_text = clean_text(comment)
 
-        # Biến chữ thành số cho AI đọc
-        inputs = self.tokenizer(cleaned_text, return_tensors="pt", truncation=True, max_length=256)
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
-
         result = {"original_text": comment, "aspects": {}}
 
-        # Trạm 2: Cho 4 mô hình lần lượt chấm điểm
-        with torch.no_grad(): # Tắt tính năng tự học để tăng tốc độ dự đoán x5 lần
-            for aspect, model in self.models.items():
-                outputs = model(**inputs)
-                logits = outputs.logits
-                predicted_idx = torch.argmax(logits, dim=1).item()
+        # Trạm 2: Cho từng khía cạnh chấm điểm (aspect + comment pair)
+        with torch.no_grad():
+            for aspect_key, aspect_text in self.aspects.items():
+                inputs = self.tokenizer(
+                    aspect_text,
+                    cleaned_text,
+                    padding="max_length",
+                    truncation=True,
+                    max_length=256,
+                    return_tensors="pt"
+                ).to(self.device)
 
-                # Dịch kết quả
-                result["aspects"][aspect] = self.label_map.get(predicted_idx, {"label": -99, "text": "Không xác định"})
+                outputs = self.model(**inputs)
+                logits = outputs.logits
+                predicted_idx = torch.argmax(logits, dim=-1).item()
+
+                result["aspects"][aspect_key] = self.label_map.get(predicted_idx, {"label": -99, "text": "Không xác định"})
 
         return result
 
