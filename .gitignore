@@ -11,6 +11,8 @@ data/
 */data/
 *.csv
 *.json
+!package.json
+!package-lock.json
 *.log
 
 # AI Models (PyTorch, HuggingFace)
