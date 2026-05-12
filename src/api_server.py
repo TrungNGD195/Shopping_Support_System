@@ -12,18 +12,42 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from inference import ABSAPredictor
 from scraper import get_reviews_from_url
 
+# Import Gemini summarizer (optional — only used if API key is configured)
+summarizer = None
+try:
+    import sys as _sys
+    _ai_core_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ai_core")
+    if _ai_core_path not in _sys.path:
+        _sys.path.insert(0, _ai_core_path)
+    from summarizer import ReviewSummarizer
+except ImportError:
+    ReviewSummarizer = None
+
 # Khởi tạo mô hình AI (Load 1 lần duy nhất khi server start)
 ai_station = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global ai_station
+    global ai_station, summarizer
     print("[INFO] Dang nap mo hinh AI vao RAM...")
     ai_station = ABSAPredictor()
+
+    # Try to initialize Gemini summarizer
+    if ReviewSummarizer:
+        try:
+            summarizer = ReviewSummarizer()
+            print("[INFO] Da nap thanh cong Gemini Summarizer!")
+        except Exception as e:
+            print(f"[WARNING] Khong the khoi dong Gemini Summarizer: {e}")
+            summarizer = None
+    else:
+        print("[INFO] Gemini Summarizer khong kha dung (thieu thu vien hoac API key).")
+
     print("[INFO] Da nap thanh cong mo hinh AI!")
     yield
     # Clean up (nếu cần)
     ai_station = None
+    summarizer = None
 
 app = FastAPI(title="Shopping Support System API", lifespan=lifespan)
 
@@ -128,6 +152,18 @@ def analyze_product(request: AnalyzeRequest):
     for aspect in result_data["aspects"]:
         result_data["aspects"][aspect]["highlights"]["positive"] = list(set(result_data["aspects"][aspect]["highlights"]["positive"]))
         result_data["aspects"][aspect]["highlights"]["negative"] = list(set(result_data["aspects"][aspect]["highlights"]["negative"]))
+
+    # 4. Gọi Gemini API để tóm tắt từng khía cạnh (nếu có summarizer)
+    if summarizer:
+        for aspect_key, aspect_data in result_data["aspects"].items():
+            pos = aspect_data["highlights"]["positive"]
+            neg = aspect_data["highlights"]["negative"]
+            if pos or neg:
+                try:
+                    summary = summarizer.summarize(aspect_data["name"], pos, neg)
+                    result_data["aspects"][aspect_key]["summary"] = summary
+                except Exception as e:
+                    print(f"[WARNING] Gemini summary error for {aspect_key}: {e}")
 
     return result_data
 
