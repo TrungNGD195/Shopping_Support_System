@@ -10,24 +10,35 @@ from contextlib import asynccontextmanager
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from ai_core.inference import ABSAPredictor
+from ai_core.inference import ABSAPredictor, SpamPredictor
 from ai_core.summarizer import ReviewSummarizer
 from src.scraper import get_reviews_from_url
 
 # Khởi tạo mô hình AI (Load 1 lần duy nhất khi server start)
 ai_station = None
+spam_station = None
 summarizer = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global ai_station, summarizer
+    global ai_station, spam_station, summarizer
     print("[INFO] Dang nap mo hinh AI vao RAM...")
     model_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'phobert-absa-final')
+    spam_dir = os.path.join(os.path.dirname(__file__), '..', 'phobert_spam')
+    
     ai_station = ABSAPredictor(model_dir)
-    summarizer = ReviewSummarizer(api_key="AIzaSyAHtaMW99Y9qMTLtsqEgvLZNY47Y28GXio")
+    if os.path.exists(spam_dir):
+        spam_station = SpamPredictor(spam_dir)
+    else:
+        print("[WARNING] Khong tim thay mo hinh Spam Filter!")
+        
+    # LƯU Ý: Khởi tạo với API Key của bạn (có thể để trong biến môi trường)
+    api_key = "AIzaSyBjaku1UOU39XLS2IhIJolUSEtCcfFGYo8"
+    summarizer = ReviewSummarizer(api_key=api_key)
     print("[INFO] Da nap thanh cong mo hinh AI va Gemini Summarizer!")
     yield
     ai_station = None
+    spam_station = None
     summarizer = None
 
 app = FastAPI(title="Shopping Support System API", lifespan=lifespan)
@@ -56,7 +67,42 @@ def analyze_product(request: AnalyzeRequest):
     if not comments:
         raise HTTPException(status_code=404, detail="Không tìm thấy bình luận nào cho sản phẩm này.")
 
+    # Trích xuất thông tin sản phẩm từ URL (Tên và Ảnh)
+    def get_product_info(product_url: str):
+        import requests, re, urllib.parse
+        info = {
+            "name": "Sản phẩm Demo",
+            "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1000&auto=format&fit=crop" # Box/Shopping image fallback
+        }
+        try:
+            if "tiki.vn" in product_url:
+                match = re.search(r'-p(\d+)\.html', product_url)
+                if match:
+                    res = requests.get(f"https://tiki.vn/api/v2/products/{match.group(1)}", headers={"User-Agent": "Mozilla/5.0"}).json()
+                    info["name"] = res.get("name", info["name"])
+                    info["image"] = res.get("thumbnail_url", info["image"])
+            elif "shopee.vn" in product_url:
+                decoded = urllib.parse.unquote(product_url)
+                match = re.search(r'shopee\.vn/(.*?)-i\.', decoded)
+                if match:
+                    name = match.group(1).replace('-', ' ')
+                    info["name"] = name
+                    
+                    # Dùng AI Search (DuckDuckGo) để tìm đúng ảnh sản phẩm đó trên mạng
+                    try:
+                        from duckduckgo_search import DDGS
+                        with DDGS() as ddgs:
+                            results = list(ddgs.images(name, max_results=1))
+                            if results:
+                                info["image"] = results[0]['image']
+                    except Exception as e:
+                        print(f"Lỗi tìm ảnh: {e}")
+        except Exception:
+            pass
+        return info
+
     result_data = {
+        "product_info": get_product_info(url),
         "overview": {
             "total_analyzed_comments": len(comments), 
             "final_verdict": "Đang tính toán...",
@@ -92,17 +138,73 @@ def analyze_product(request: AnalyzeRequest):
     }
 
     # 2. Phân tích qua AI Station
-    for cmt in comments:
-        prediction = ai_station.predict(cmt) # Trả về {"Quality": "Tích cực (Khen)", ...}
+    # Hàm làm đẹp bình luận tiêu biểu (Format lại cho đẹp thay vì copy nguyên si)
+    def format_highlight(cmt: str) -> str:
+        import re
+        c = str(cmt)
         
+        # Sửa lỗi chữ dính nhau (VD: "Màu sắc:oki,chất liệu:đẹp" -> "Màu sắc: oki, chất liệu: đẹp")
+        # Tránh tách URL (http://) hoặc giờ/số (12:30, 10,000)
+        c = re.sub(r'([:,])([^\s/0-9])', r'\1 \2', c)
+        
+        # Xóa khoảng trắng thừa và ký tự lặp
+        c = re.sub(r'\s+', ' ', c).strip()
+        c = re.sub(r'([.?!])\1+', r'\1', c)
+        
+        # Viết hoa chữ cái đầu và giữ nguyên toàn bộ nội dung (không cắt bớt)
+        if c:
+            c = c[0].upper() + c[1:]
+        return c
+
+    def is_spam(text: str) -> bool:
+        # Nếu có mô hình AI Spam Filter, ưu tiên dùng AI (Lớp AI Phân Loại)
+        if spam_station:
+            return spam_station.is_spam(text)
+            
+        # Nếu không có mô hình, fallback về Lớp Lọc Heuristic (Keyword)
+        text = str(text).lower()
+        real_keywords = [
+            "vải", "chất", "đẹp", "xấu", "rẻ", "đắt", "màu", "size", "form", "mặc", 
+            "giao", "shop", "gói", "tư", "vấn", "thơm", "xịn", "ok", "tốt", "ưng", "nhanh", "chậm",
+            "nồi", "máy", "thiết", "kế", "dùng", "sử", "dụng", "mua", "test", "hàng", "tiền", "giá",
+            "bảo hành", "chắc", "bền", "lỗi", "hư", "hỏng", "thích", "tuyệt", "kém", "tệ",
+            "áo", "quần", "ủi", "nước", "nhựa", "kim loại", "tạm", "ổn", "khen", "chê",
+            "thất vọng", "hài lòng", "đáng", "phí", "xứng", "chất lượng", "vừa", "rộng", "chật",
+            "ngắn", "dài", "mỏng", "dày", "cứng", "mềm", "mịn", "xù", "nóng", "mát",
+            "chạy", "êm", "ồn", "giặt", "sạch", "pin", "sạc", "màn", "âm thanh", "chuẩn",
+            "đóng gói", "cẩn thận", "nhẹ", "nặng", "to", "nhỏ", "bóp", "kéo", "khóa", "túi"
+        ]
+        real_count = sum(1 for kw in real_keywords if kw in text)
+        
+        if text.count('\n') >= 3 and len(text) > 80 and real_count < 2:
+            return True
+            
+        if any(kw in text for kw in ["nhận xu", "lấy xu", "săn xu", "mang tính chất", "chống trôi"]):
+            if real_count < 2 and not (len(text) > 50 and real_count >= 1): 
+                return True
+            
+        if len(text.strip()) < 5: return True
+        return False
+
+    for cmt in comments:
+        # Bỏ qua bình luận rác, thơ ca để không đưa vào Ý kiến tiêu biểu
+        if is_spam(cmt):
+            continue
+            
+        # Predict uses CPU so it takes time per comment
+        prediction = ai_station.predict(cmt)
+        
+        # Aggregate statistics
         for aspect in result_data["aspects"]:
             sentiment = prediction.get(aspect)
+            formatted_cmt = format_highlight(cmt)
+            
             if sentiment == "Tích cực (Khen)":
                 result_data["aspects"][aspect]["stats"]["Khen"] += 1
-                result_data["aspects"][aspect]["highlights"]["positive"].append(cmt)
+                result_data["aspects"][aspect]["highlights"]["positive"].append(formatted_cmt)
             elif sentiment == "Tiêu cực (Chê)":
                 result_data["aspects"][aspect]["stats"]["Chê"] += 1
-                result_data["aspects"][aspect]["highlights"]["negative"].append(cmt)
+                result_data["aspects"][aspect]["highlights"]["negative"].append(formatted_cmt)
             elif sentiment == "Bình thường":
                 result_data["aspects"][aspect]["stats"]["Bình thường"] += 1
             else:
@@ -125,12 +227,13 @@ def analyze_product(request: AnalyzeRequest):
 
     # 4. Yêu cầu Gemini tóm tắt cho từng khía cạnh
     for aspect in result_data["aspects"]:
-        pos_list = list(set(result_data["aspects"][aspect]["highlights"]["positive"]))
-        neg_list = list(set(result_data["aspects"][aspect]["highlights"]["negative"]))
+        # Khử trùng nhưng giữ nguyên thứ tự (đã được sort theo độ dài từ scraper)
+        pos_list = list(dict.fromkeys(result_data["aspects"][aspect]["highlights"]["positive"]))
+        neg_list = list(dict.fromkeys(result_data["aspects"][aspect]["highlights"]["negative"]))
         
-        # Gán lại list đã khử trùng
-        result_data["aspects"][aspect]["highlights"]["positive"] = pos_list
-        result_data["aspects"][aspect]["highlights"]["negative"] = neg_list
+        # Gán lại list và CHỈ GIỮ LẠI 5 câu dài/tâm huyết nhất theo yêu cầu
+        result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:5]
+        result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:5]
         
         # Lấy tên tiếng Việt
         vi_name = result_data["aspects"][aspect]["name"]
