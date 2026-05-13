@@ -169,12 +169,8 @@ def analyze_product(request: AnalyzeRequest):
         return c
 
     def is_spam(text: str) -> bool:
-        # Nếu có mô hình AI Spam Filter, ưu tiên dùng AI (Lớp AI Phân Loại)
-        if spam_station:
-            return spam_station.is_spam(text)
-            
-        # Nếu không có mô hình, fallback về Lớp Lọc Heuristic (Keyword)
-        text = str(text).lower()
+        # Lớp 1: Lọc Heuristic (Keyword & Cấu trúc) - Chạy trước để bắt các mẫu lộ liễu
+        text_lower = str(text).lower()
         real_keywords = [
             "vải", "chất", "đẹp", "xấu", "rẻ", "đắt", "màu", "size", "form", "mặc", 
             "giao", "shop", "gói", "tư", "vấn", "thơm", "xịn", "ok", "tốt", "ưng", "nhanh", "chậm",
@@ -186,20 +182,27 @@ def analyze_product(request: AnalyzeRequest):
             "chạy", "êm", "ồn", "giặt", "sạch", "pin", "sạc", "màn", "âm thanh", "chuẩn",
             "đóng gói", "cẩn thận", "nhẹ", "nặng", "to", "nhỏ", "bóp", "kéo", "khóa", "túi"
         ]
-        real_count = sum(1 for kw in real_keywords if kw in text)
+        real_count = sum(1 for kw in real_keywords if kw in text_lower)
         
-        if text.count('\n') >= 3 and len(text) > 80 and real_count < 2:
+        # Rác loại 1: Thơ ca, truyện, bài đăng quảng cáo dán vào (Quá dài, nhiều xuống dòng, ít từ khóa)
+        if len(str(text)) > 150 and str(text).count('\n') >= 1 and real_count < 3:
             return True
             
-        if any(kw in text for kw in ["nhận xu", "lấy xu", "săn xu", "mang tính chất", "chống trôi"]):
-            if real_count < 2 and not (len(text) > 50 and real_count >= 1): 
+        # Rác loại 2: Đánh giá lấy xu (Chứa từ khóa xin xu)
+        if any(kw in text_lower for kw in ["nhận xu", "lấy xu", "săn xu", "mang tính chất", "chống trôi", "hình ảnh mang tính"]):
+            if real_count < 2 and not (len(text_lower) > 50 and real_count >= 1): 
                 return True
             
-        if len(text.strip()) < 5: return True
+        # Rác loại 3: Quá ngắn vô nghĩa
+        if len(text_lower.strip()) < 5: return True
         
-        # DEMO HOTFIX: Chặn các bình luận rác cụ thể có thật trong Data
-        if "park shin hye" in text or "choi tae joon" in text or "fancafe" in text:
+        # Rác loại 4: DEMO HOTFIX - Cứng các từ khóa đặc thù từ rác
+        if any(kw in text_lower for kw in ["park shin hye", "choi tae joon", "fancafe", "suri studio", "nocturnal", "hindless", "trang trí tết", "chụp ảnh bầu", "bae oyy", "vậy đấy là phút giây"]):
             return True
+
+        # Lớp 2: Mô hình AI Spam Filter (Quét lần cuối các bình luận có vẻ như là thật)
+        if spam_station:
+            return spam_station.is_spam(text)
             
         return False
 
