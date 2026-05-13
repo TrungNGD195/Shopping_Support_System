@@ -37,15 +37,18 @@ class SpamDataset(Dataset):
         }
 
 def train_spam_model():
-    print("[1] Đang tải dữ liệu từ data/spam_dataset.csv...")
-    if not os.path.exists("data/spam_dataset.csv"):
-        print("LỖI: Chưa có file data/spam_dataset.csv! Hãy chạy auto_label_spam_gemini.py trước.")
+    print("[1] Đang tải dữ liệu từ data/gemma_labeled_spam.csv...")
+    if not os.path.exists("../../data/gemma_labeled_spam.csv") and not os.path.exists("data/gemma_labeled_spam.csv"):
+        print("LỖI: Chưa có file data/gemma_labeled_spam.csv! Hãy chạy auto_label_spam_gemma.py trước.")
         return
 
-    df = pd.read_csv("data/spam_dataset.csv")
+    try:
+        df = pd.read_csv("data/gemma_labeled_spam.csv")
+    except FileNotFoundError:
+        df = pd.read_csv("../../data/gemma_labeled_spam.csv")
     
     # 2. Chia tập Train/Test
-    X_train, X_test, y_train, y_test = train_test_split(df['comment'], df['is_spam'], test_size=0.1, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(df['comment'], df['gemma_is_spam'], test_size=0.1, random_state=42)
 
     # 3. Khởi tạo Tokenizer và PhoBERT
     print("[2] Đang tải mô hình PhoBERT-base...")
@@ -83,9 +86,10 @@ def train_spam_model():
     trainer.train()
 
     # 7. Lưu mô hình
-    print("[4] Đang lưu mô hình vào thư mục models/phobert-spam-filter...")
-    model.save_pretrained("models/phobert-spam-filter")
-    tokenizer.save_pretrained("models/phobert-spam-filter")
+    save_dir = "../../models/phobert-spam-filter" if os.path.exists("../../data") else "models/phobert-spam-filter"
+    print(f"[4] Đang lưu mô hình vào thư mục {save_dir}...")
+    model.save_pretrained(save_dir)
+    tokenizer.save_pretrained(save_dir)
     print("HOÀN TẤT! Đã train xong AI Lọc Spam.")
 
 if __name__ == "__main__":
