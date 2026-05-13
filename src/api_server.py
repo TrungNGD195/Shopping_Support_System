@@ -210,34 +210,6 @@ def analyze_product(request: AnalyzeRequest):
             
         # Predict uses CPU so it takes time per comment
         prediction = ai_station.predict(cmt)
-        
-        # DEMO HOTFIX: Ép mô hình trả về đúng logic con người dựa trên keyword mạnh
-        # Do mô hình cũ vẫn có thể bị nhiễu do câu quá dài
-        text_lower = str(cmt).lower()
-        strong_negative_words = [
-            "trào ra", "không hài lòng", "thất vọng", "rất tệ", "quá tệ", 
-            "hư rồi", "xóa shopee", "không hỗ trợ", "không đàng hoàng", "k có ron", "k kín", "bị trào", "đuổi kiến",
-            "mỏng", "sai màu", "nilon", "lồi lõm", "chộp giật", "không ngửi nổi", "kém", "chán", "rách", 
-            "không khớp", "sai sản phẩm", "đừng mua", "không đáng tin", "làm ăn ***"
-        ]
-        strong_positive_words = [
-            "tuyệt vời", "đẹp", "xịn", "tốt", "mát mẻ", "đáng đồng tiền", "cẩn thận", 
-            "nhanh", "10 điểm", "ưng ý", "vượt xa", "thoải mái", "đầm tay", "rẻ", "hài lòng",
-            "oke", "ok", "dễ", "chính hãng", "như quảng cáo", "nhanh gọn", "cảm ơn shop"
-        ]
-        
-        is_neg = any(w in text_lower for w in strong_negative_words)
-        is_pos = any(w in text_lower for w in strong_positive_words)
-        
-        # Nếu có cả khen và chê, ưu tiên chê (khắt khe hơn)
-        if is_neg:
-            for aspect in prediction:
-                if prediction[aspect] in ["Tích cực (Khen)", "Bình thường"]:
-                    prediction[aspect] = "Tiêu cực (Chê)"
-        elif is_pos and not is_neg:
-            for aspect in prediction:
-                if prediction[aspect] in ["Tiêu cực (Chê)", "Bình thường"]:
-                    prediction[aspect] = "Tích cực (Khen)"
 
         # Aggregate statistics
         for aspect in result_data["aspects"]:
