@@ -47,43 +47,73 @@ Bình luận cần phân tích:
 "{comment}"
 """
 
-    print(f"Bắt đầu gán nhãn cho {len(df)} dòng dữ liệu bằng Gemma 4...")
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from threading import Lock
     
-    for index, row in df.iterrows():
+    print(f"Bắt đầu gán nhãn cho {len(df)} dòng dữ liệu bằng Gemma 4 (Chạy song song 10 luồng)...")
+    
+    # Chuẩn bị danh sách index để chạy
+    indices = df.index.tolist()
+    
+    # Lock để in tiến độ không bị chồng chéo
+    print_lock = Lock()
+    success_count = 0
+    
+    def process_row(index):
+        nonlocal success_count
+        row = df.loc[index]
         comment = str(row['comment'])
+        
         if len(comment.strip()) < 2:
-            continue
+            return index, -1, -1, -1, -1
             
         prompt = prompt_template.format(comment=comment)
         
-        try:
-            response = client.chat.completions.create(
-                model="gemma-4",
-                messages=[
-                    {"role": "system", "content": "Bạn trả về kết quả định dạng JSON thuần túy."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=256,
-                temperature=0.1
-            )
-            
-            text = response.choices[0].message.content.strip()
-            if text.startswith("```json"):
-                text = text[7:-3].strip()
-            elif text.startswith("```"):
-                text = text[3:-3].strip()
+        for attempt in range(3): # Thử lại tối đa 3 lần nếu lỗi
+            try:
+                response = client.chat.completions.create(
+                    model="gemma-4",
+                    messages=[
+                        {"role": "system", "content": "Bạn trả về kết quả định dạng JSON thuần túy."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=256,
+                    temperature=0.1
+                )
                 
-            result = json.loads(text)
-            df.at[index, 'Quality'] = result.get('Quality', -1)
-            df.at[index, 'Price'] = result.get('Price', -1)
-            df.at[index, 'Delivery'] = result.get('Delivery', -1)
-            df.at[index, 'Service'] = result.get('Service', -1)
-            
-            print(f"[{index+1}/{len(df)}] Thành công: {comment[:30]}... -> Q:{result.get('Quality')} | P:{result.get('Price')} | D:{result.get('Delivery')} | S:{result.get('Service')}")
-            
-        except Exception as e:
-            print(f"[{index+1}/{len(df)}] Lỗi API với bình luận: '{comment[:30]}...' -> {e}")
-            time.sleep(1)
+                text = response.choices[0].message.content.strip()
+                if text.startswith("```json"):
+                    text = text[7:-3].strip()
+                elif text.startswith("```"):
+                    text = text[3:-3].strip()
+                    
+                result = json.loads(text)
+                
+                with print_lock:
+                    success_count += 1
+                    print(f"[{success_count}/{len(df)}] Thành công: {comment[:30]}... -> Q:{result.get('Quality')} | P:{result.get('Price')} | D:{result.get('Delivery')} | S:{result.get('Service')}")
+                    
+                return index, result.get('Quality', -1), result.get('Price', -1), result.get('Delivery', -1), result.get('Service', -1)
+                
+            except Exception as e:
+                if attempt == 2:
+                    with print_lock:
+                        success_count += 1
+                        print(f"[{success_count}/{len(df)}] Lỗi API với bình luận: '{comment[:30]}...' -> {e}")
+                time.sleep(1)
+                
+        return index, -1, -1, -1, -1
+
+    # Chạy song song với 10 threads
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(process_row, idx): idx for idx in indices}
+        
+        for future in as_completed(futures):
+            idx, q, p, d, s = future.result()
+            df.at[idx, 'Quality'] = q
+            df.at[idx, 'Price'] = p
+            df.at[idx, 'Delivery'] = d
+            df.at[idx, 'Service'] = s
             
     # Lưu file
     df.to_csv(output_csv, index=False)
