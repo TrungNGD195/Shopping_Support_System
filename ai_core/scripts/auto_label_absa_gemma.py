@@ -50,7 +50,7 @@ Bình luận cần phân tích:
     from concurrent.futures import ThreadPoolExecutor, as_completed
     from threading import Lock
     
-    print(f"Bắt đầu gán nhãn cho {len(df)} dòng dữ liệu bằng Gemma 4 (Chạy song song 10 luồng)...")
+    print(f"Bắt đầu gán nhãn cho {len(df)} dòng dữ liệu bằng Gemma 4 (Chạy song song 1000 luồng)...")
     
     # Chuẩn bị danh sách index để chạy
     indices = df.index.tolist()
@@ -104,8 +104,8 @@ Bình luận cần phân tích:
                 
         return index, -1, -1, -1, -1
 
-    # Chạy song song với 10 threads
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    # Chạy song song với 1000 threads
+    with ThreadPoolExecutor(max_workers=1000) as executor:
         futures = {executor.submit(process_row, idx): idx for idx in indices}
         
         for future in as_completed(futures):
