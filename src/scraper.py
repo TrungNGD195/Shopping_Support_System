@@ -1,28 +1,54 @@
-import time
+import csv
+import os
+import re
 import random
 
+# Cache reviews indexed by product_id at module load
+_REVIEWS = {}
+
+def _load_reviews():
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+    for filename in ("positive_reviews.csv", "negative_reviews.csv"):
+        path = os.path.join(data_dir, filename)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8-sig") as f:
+            for row in csv.DictReader(f):
+                pid = row.get("product_id", "").strip()
+                comment = row.get("comment", "").strip()
+                if pid and comment:
+                    _REVIEWS.setdefault(pid, []).append(comment)
+
+_load_reviews()
+
+def _extract_product_id(url: str) -> str | None:
+    """Extract product_id from a Shopee or Tiki URL."""
+    # Shopee: ...i.{shop_id}.{product_id} or ...-i.{shop_id}.{product_id}
+    m = re.search(r'i\.(\d+)\.(\d+)', url)
+    if m:
+        return m.group(2)
+    # Tiki: ...i{product_id} or ...p-{product_id}
+    m = re.search(r'(?:i|p-?)(\d{6,})', url)
+    if m:
+        return m.group(1)
+    # Fallback: last long number in URL
+    numbers = re.findall(r'(\d{6,})', url)
+    if numbers:
+        return numbers[-1]
+    return None
+
 def get_reviews_from_url(url: str) -> list[str]:
-    """
-    Mock scraper: Lấy dữ liệu bình luận từ URL (Mô phỏng).
-    Trong thực tế, bạn sẽ gọi crawl_reviews.py hoặc API bên thứ 3 ở đây.
-    """
-    # Trả về các bình luận siêu thực tế để trình diễn AI
-    mock_comments = [
-        "Chất vải mỏng hơn mình nghĩ, form áo thì tạm được nhưng đường chỉ may ẩu quá, nhiều chỉ thừa. Giao hàng thì siêu lâu, chờ hơn 1 tuần mới tới.",
-        "Áo đẹp tuyệt vời nha mọi người, mặc cực kỳ tôn dáng và mát mẻ. Rất đáng đồng tiền bát gạo. Đóng gói cẩn thận, shop chuẩn bị hàng nhanh, 10 điểm!",
-        "Chất lượng bình thường, không có gì đặc sắc. Tầm giá 100k thì mình cũng không kỳ vọng nhiều. Mặc tạm đi chơi thì được.",
-        "Giao sai màu rồi shop ơi, mình đặt màu đen mà giao màu xanh. Đã nhắn tin xin đổi trả mà shop seen không rep, dịch vụ tệ quá!",
-        "Hàng xịn xò lắm, form y hình. Vải co giãn thoải mái. Tuy nhiên hộp bị móp méo chút xíu do vận chuyển, bên trong vẫn nguyên vẹn.",
-        "Tuyệt vời! Sản phẩm vượt xa mong đợi, chất liệu xịn xò mặc rất thoải mái. Shipper thân thiện, giao hàng thần tốc chỉ trong 1 ngày.",
-        "Thất vọng! Áo bị rách một lỗ nhỏ ở nách, nhắn tin shop thì thái độ lồi lõm không chịu đổi. Mọi người né shop này ra nhé, làm ăn chộp giật.",
-        "Cũng tạm ổn, màu nhạt hơn trong hình một chút. Ship nhanh, đóng gói chắc chắn. Với giá này thì mua mặc ở nhà cũng oke.",
-        "Shop phục vụ siêu tốt, mình lỡ đặt nhầm size nhắn tin đổi shop hỗ trợ rất nhiệt tình. Áo chất len tăm dày dặn, mặc thích lắm.",
-        "Quá tệ! Vải nilon mặc bí vô cùng, mồ hôi không thoát được. Được cái giá rẻ với giao nhanh thôi chứ chất lượng thì không ngửi nổi."
-    ]
-    
-    # Mô phỏng độ trễ của mạng khi cào dữ liệu thật (0.5s - 1.5s)
-    time.sleep(random.uniform(0.5, 1.5))
-    
-    # Trộn ngẫu nhiên và lấy ra 5-8 bình luận để mỗi lần phân tích có sự khác biệt
-    random.shuffle(mock_comments)
-    return mock_comments[:random.randint(5, 8)]
+    """Lấy bình luận từ CSV theo product_id trong URL."""
+    pid = _extract_product_id(url)
+    if pid and pid in _REVIEWS:
+        reviews = _REVIEWS[pid]
+        random.shuffle(reviews)
+        return reviews[:min(len(reviews), 50)]
+
+    # Fallback: random sample from all reviews if product not found
+    all_reviews = [c for cs in _REVIEWS.values() for c in cs]
+    if all_reviews:
+        random.shuffle(all_reviews)
+        return all_reviews[:random.randint(5, 8)]
+
+    return []
