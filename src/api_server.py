@@ -46,7 +46,8 @@ async def lifespan(app: FastAPI):
     api_key = "AIzaSyBjaku1UOU39XLS2IhIJolUSEtCcfFGYo8"
     
     # Cố tình truyền sai Gemini Key để ép hệ thống dùng Gemma 4 tóm tắt (Demo)
-    summarizer = ReviewSummarizer(gemini_key="INVALID_KEY_TO_FORCE_GEMMA")
+    # VÀ PHẢI CẤP KEY CHO GEMMA thì nó mới chạy được!
+    summarizer = ReviewSummarizer(gemini_key="INVALID_KEY_TO_FORCE_GEMMA", gemma_key="gemma4-openclaw-2026")
     print("[INFO] Da nap thanh cong mo hinh AI va Gemini Summarizer!")
     yield
     ai_station = None
@@ -216,30 +217,8 @@ def analyze_product(request: AnalyzeRequest):
         # Predict uses CPU so it takes time per comment
         prediction = ai_station.predict(cmt)
         
-        # DEMO HOTFIX (Safe Version): Bắt các câu model nhận nhầm vì có nhiều ý trộn lẫn.
-        # Dùng các từ khóa tiêu cực MẠNH, TÍNH TOÀN CỤC (tránh từ khóa địa phương như mỏng, dày, to, nhỏ).
-        text_lower = str(cmt).lower()
-        safe_negative_words = [
-            "thất vọng", "rất tệ", "quá tệ", "hư rồi", "làm ăn ***", "đừng mua", "không đáng tin",
-            "chán", "né", "rác", "không đáng tiền", "móp", "khét", "hỏng", "bong", "chảy nước",
-            "sai sản phẩm", "lồi lõm", "chộp giật", "kém", "chưa chín"
-        ]
-        safe_positive_words = [
-            "tuyệt vời", "xịn", "đáng đồng tiền", "10 điểm", "vượt xa", "rất ưng"
-        ]
-        
-        is_neg = any(w in text_lower for w in safe_negative_words)
-        is_pos = any(w in text_lower for w in safe_positive_words)
-        
-        # Nếu có chửi rủa/chê nặng thì ưu tiên ép về Chê (Dù có khen vỏ hộp đẹp)
-        if is_neg:
-            for aspect in prediction:
-                if prediction[aspect] in ["Tích cực (Khen)", "Bình thường"]:
-                    prediction[aspect] = "Tiêu cực (Chê)"
-        elif is_pos and not is_neg:
-            for aspect in prediction:
-                if prediction[aspect] in ["Tiêu cực (Chê)", "Bình thường"]:
-                    prediction[aspect] = "Tích cực (Khen)"
+        # DEMO HOTFIX đã được gỡ bỏ.
+        # Hệ thống bây giờ sẽ dùng 100% kết quả dự đoán nguyên bản từ PhoBERT.
 
         # Aggregate statistics
         for aspect in result_data["aspects"]:
