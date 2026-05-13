@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "Multi-Platform Review Crawler",
+  "version": "2.0",
+  "description": "Crawl reviews từ Shopee, Lazada",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://shopee.vn/*",
+    "https://*.lazada.vn/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://shopee.vn/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://*.lazada.vn/*"],
+      "js": ["content_lazada.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["https://shopee.vn/*"]
+    },
+    {
+      "resources": ["injected_lazada.js"],
+      "matches": ["https://*.lazada.vn/*"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
