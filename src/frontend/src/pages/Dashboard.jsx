@@ -71,7 +71,7 @@ const Dashboard = () => {
 
   if (!data) return null;
 
-  const { overview, aspects } = data;
+  const { overview, aspects, product_info } = data;
   
   // Chuẩn bị dữ liệu cho biểu đồ Donut
   const getChartData = (aspectKey) => {
@@ -126,14 +126,25 @@ const Dashboard = () => {
       {/* Main Content Area */}
       <main className="flex-grow p-4 md:p-8 overflow-y-auto w-full">
         
-        {/* Header Title */}
+        {/* Header Title & Product Info */}
         <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mb-2">Báo cáo Phân tích Sản phẩm</h1>
-          <div className="flex items-center gap-2 text-sm text-slate-500 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm inline-flex max-w-full overflow-hidden">
-            <span className="font-medium shrink-0">Nguồn:</span>
-            <a href={url} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline truncate">
-              {url}
-            </a>
+          <div className="flex flex-col md:flex-row md:items-start gap-6 mb-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            {product_info?.image && (
+              <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden border border-slate-100 shadow-sm">
+                <img src={product_info.image} alt={product_info.name} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="flex flex-col justify-center">
+              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mb-2 line-clamp-2">
+                {product_info?.name || "Báo cáo Phân tích Sản phẩm"}
+              </h1>
+              <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100 inline-flex max-w-full overflow-hidden">
+                <span className="font-medium shrink-0">Nguồn:</span>
+                <a href={url} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline truncate">
+                  {url}
+                </a>
+              </div>
+            </div>
           </div>
         </div>
 
