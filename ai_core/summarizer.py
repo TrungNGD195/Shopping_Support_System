@@ -1,18 +1,19 @@
-from google import genai
 import os
+import json
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 class ReviewSummarizer:
     def __init__(self, api_key=None):
-        # Lấy API Key từ tham số, hoặc từ biến môi trường
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
-        if not self.api_key or self.api_key == "YOUR_GEMINI_API_KEY_HERE":
-            raise ValueError("Chưa cấu hình Gemini API Key. Vui lòng thêm API Key vào code!")
+        self.api_key = api_key or os.environ.get("GEMMA_API_KEY", "gemma4-openclaw-2026")
             
-        # Khởi tạo client theo chuẩn thư viện google-genai mới nhất
-        self.client = genai.Client(api_key=self.api_key)
+        # Khởi tạo client theo chuẩn OpenAI cho Gemma 4
+        self.client = OpenAI(
+            base_url="http://171.226.10.121:8000/llm/v1",
+            api_key=self.api_key
+        )
 
     def summarize_and_extract(self, aspect, positive_comments, negative_comments):
         """
@@ -55,14 +56,19 @@ class ReviewSummarizer:
         }
         
         try:
-            response = self.client.models.generate_content(
-                model='gemini-2.0-flash',
-                contents=prompt
+            response = self.client.chat.completions.create(
+                model='gemma-4',
+                messages=[
+                    {"role": "system", "content": "Bạn là hệ thống phân tích đánh giá sản phẩm. Bạn trả về kết quả định dạng JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=1024,
+                temperature=0.1
             )
-            text = response.text.strip()
+            text = response.choices[0].message.content.strip()
             if text.startswith("```json"):
                 text = text[7:-3].strip()
-            if text.startswith("```"):
+            elif text.startswith("```"):
                 text = text[3:-3].strip()
             
             data = json.loads(text)
