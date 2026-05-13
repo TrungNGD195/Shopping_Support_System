@@ -47,7 +47,10 @@ class ReviewSummarizer:
             )
             return response.text.strip()
         except Exception as e:
-            return f"Lỗi khi gọi API: {str(e)}"
+            error_msg = str(e)
+            if "429" in error_msg or "quota" in error_msg.lower():
+                return "Hệ thống AI tóm tắt đang tạm thời quá tải (vượt giới hạn miễn phí của Gemini). Vui lòng thử lại sau vài phút."
+            return "Tính năng tóm tắt bằng AI tạm thời không khả dụng."
 
 if __name__ == "__main__":
     # BƯỚC 1: DÁN API KEY CỦA BẠN VÀO ĐÂY

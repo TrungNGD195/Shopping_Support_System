@@ -87,12 +87,14 @@ def analyze_product(request: AnalyzeRequest):
                 if match:
                     name = match.group(1).replace('-', ' ')
                     info["name"] = name
+                    # Rút gọn tên sản phẩm để tìm ảnh chính xác hơn (khoảng 8 từ đầu tiên)
+                    search_name = " ".join(name.split(" ")[:8])
                     
                     # Dùng AI Search (DuckDuckGo) để tìm đúng ảnh sản phẩm đó trên mạng
                     try:
                         from duckduckgo_search import DDGS
                         with DDGS() as ddgs:
-                            results = list(ddgs.images(name, max_results=1))
+                            results = list(ddgs.images(search_name, max_results=1))
                             if results:
                                 info["image"] = results[0]['image']
                     except Exception as e:

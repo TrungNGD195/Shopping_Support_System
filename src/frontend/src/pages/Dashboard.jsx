@@ -128,20 +128,20 @@ const Dashboard = () => {
         
         {/* Header Title & Product Info */}
         <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-start gap-6 mb-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex flex-col md:flex-row gap-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm items-center md:items-start">
             {product_info?.image && (
-              <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden border border-slate-100 shadow-sm">
-                <img src={product_info.image} alt={product_info.name} className="w-full h-full object-cover" />
+              <div className="w-48 h-48 md:w-64 md:h-64 shrink-0 rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 flex items-center justify-center">
+                <img src={product_info.image} alt={product_info.name} className="max-w-full max-h-full object-contain" />
               </div>
             )}
-            <div className="flex flex-col justify-center">
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mb-2 line-clamp-2">
+            <div className="flex flex-col justify-center h-full py-2 w-full">
+              <h1 className="text-2xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-4 leading-tight">
                 {product_info?.name || "Báo cáo Phân tích Sản phẩm"}
               </h1>
-              <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 px-3 py-1.5 rounded-md border border-slate-100 inline-flex max-w-full overflow-hidden">
-                <span className="font-medium shrink-0">Nguồn:</span>
-                <a href={url} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline truncate">
-                  {url}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Nguồn dữ liệu:</span>
+                <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-bold hover:bg-primary-100 transition-colors">
+                  {url.includes('shopee') ? '🛍️ Shopee' : '📦 Tiki'}
                 </a>
               </div>
             </div>
