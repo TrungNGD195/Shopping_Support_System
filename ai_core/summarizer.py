@@ -1,24 +1,33 @@
 import os
 import json
+from google import genai
 from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 class ReviewSummarizer:
-    def __init__(self, api_key=None):
-        self.api_key = api_key or os.environ.get("GEMMA_API_KEY", "gemma4-openclaw-2026")
+    def __init__(self, gemini_key=None, gemma_key=None):
+        self.gemini_key = gemini_key or os.environ.get("GEMINI_API_KEY")
+        self.gemma_key = gemma_key or os.environ.get("GEMMA_API_KEY", "gemma4-openclaw-2026")
+        
+        # Khởi tạo Gemini Client (Lựa chọn 1)
+        self.gemini_client = None
+        if self.gemini_key and self.gemini_key != "YOUR_GEMINI_API_KEY_HERE":
+            self.gemini_client = genai.Client(api_key=self.gemini_key)
             
-        self.client = OpenAI(
+        # Khởi tạo Gemma Client (Lựa chọn 2 - Dự phòng)
+        self.gemma_client = OpenAI(
             base_url="http://171.226.10.121:8000/llm/v1",
-            api_key=self.api_key
+            api_key=self.gemma_key
         )
 
     def summarize_and_extract(self, aspect, positive_comments, negative_comments):
         """
-        Gửi danh sách bình luận Khen/Chê của 1 khía cạnh cho Gemini tóm tắt VÀ trích xuất các câu nổi bật nhất.
+        Gửi danh sách bình luận Khen/Chê của 1 khía cạnh cho AI tóm tắt.
+        Lựa chọn 1: Thử gọi Gemini.
+        Lựa chọn 2: Nếu Gemini lỗi (hết Quota), tự động gọi Gemma 4.
         """
-        import json
         if not positive_comments and not negative_comments:
             return {
                 "summary": "Không có đánh giá nào cho khía cạnh này.",
@@ -27,57 +36,77 @@ class ReviewSummarizer:
             }
 
         prompt = f"""
-        Bạn là hệ thống phân tích đánh giá sản phẩm.
-        Khía cạnh đang phân tích: '{aspect}'.
+Bạn là chuyên gia phân tích đánh giá sản phẩm.
+Tóm tắt ngắn gọn Ưu/Nhược điểm về khía cạnh '{aspect}' từ các bình luận dưới đây.
+Đồng thời trích xuất tối đa 2 câu khen nổi bật nhất và 2 câu chê nổi bật nhất (trích nguyên văn, ngắn gọn).
 
-        Nhiều bình luận dưới đây rất dài và chứa thông tin của các khía cạnh khác (ví dụ: đang xét Giá Cả nhưng bình luận lại nói cả về Giao Hàng).
-        
-        NHIỆM VỤ:
-        1. Tóm tắt cảm nhận chung (3-4 câu) CHỈ về khía cạnh '{aspect}'.
-        2. Trích xuất tối đa 5 câu/cụm từ NGẮN (cắt bỏ phần thừa, chỉ lấy đúng phần nói về '{aspect}') đại diện cho Khen.
-        3. Trích xuất tối đa 5 câu/cụm từ NGẮN (chỉ lấy phần nói về '{aspect}') đại diện cho Chê.
+Bình luận Tích cực:
+{positive_comments[:20]}
 
-        Danh sách KHEN: {positive_comments}
-        Danh sách CHÊ: {negative_comments}
-        
-        BẮT BUỘC trả về ĐÚNG định dạng JSON (không có markdown ```json):
-        {{
-            "summary": "Đoạn tóm tắt...",
-            "positive_highlights": ["câu khen 1", "câu khen 2", "câu khen 3", "câu khen 4", "câu khen 5"],
-            "negative_highlights": ["câu chê 1", "câu chê 2", "câu chê 3", "câu chê 4", "câu chê 5"]
-        }}
-        """
-        
+Bình luận Tiêu cực:
+{negative_comments[:20]}
+
+Trả về kết quả bằng ĐÚNG ĐỊNH DẠNG JSON sau, không giải thích gì thêm:
+{{
+  "summary": "Đánh giá chung...",
+  "positive_highlights": ["câu khen 1", "câu khen 2"],
+  "negative_highlights": ["câu chê 1", "câu chê 2"]
+}}
+"""
         fallback_result = {
-            "summary": "Hệ thống AI đang quá tải, không thể tóm tắt.",
-            "positive_highlights": positive_comments[:5],
-            "negative_highlights": negative_comments[:5]
+            "summary": "Hệ thống AI hiện đang quá tải. Dưới đây là các bình luận thô đã được lọc:",
+            "positive_highlights": positive_comments[:2],
+            "negative_highlights": negative_comments[:2]
         }
         
+        # --- LỰA CHỌN 1: GEMINI API ---
+        if self.gemini_client:
+            try:
+                response = self.gemini_client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt
+                )
+                text = response.text.strip()
+                if text.startswith("```json"):
+                    text = text[7:-3].strip()
+                elif text.startswith("```"):
+                    text = text[3:-3].strip()
+                
+                start_idx = text.find('{')
+                end_idx = text.rfind('}')
+                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                    return json.loads(text[start_idx:end_idx+1])
+            except Exception as e:
+                print(f"Gemini API Error (Chuyển sang dùng Gemma): {e}")
+        else:
+            print("Không tìm thấy Gemini Key, tự động chuyển sang Gemma...")
+
+        # --- LỰA CHỌN 2: GEMMA 4 MoE (DỰ PHÒNG) ---
         try:
-            response = self.client.chat.completions.create(
-                model='gemma-4',
+            response = self.gemma_client.chat.completions.create(
+                model="gemma-4",
                 messages=[
-                    {"role": "system", "content": "Bạn là hệ thống phân tích đánh giá sản phẩm. Bạn trả về kết quả định dạng JSON."},
+                    {"role": "system", "content": "Bạn trả về kết quả định dạng JSON thuần túy."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=1024,
+                max_tokens=512,
                 temperature=0.1
             )
             text = response.choices[0].message.content.strip()
-            if text.startswith("```json"):
-                text = text[7:-3].strip()
-            elif text.startswith("```"):
-                text = text[3:-3].strip()
             
-            data = json.loads(text)
-            return data
+            # Cắt JSON chuẩn xác để tránh lỗi Extra data
+            start_idx = text.find('{')
+            end_idx = text.rfind('}')
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                return json.loads(text[start_idx:end_idx+1])
+            else:
+                return fallback_result
+                
         except Exception as e:
             print(f"Gemma API Error: {e}")
             return fallback_result
 
 if __name__ == "__main__":
-    # BƯỚC 1: DÁN API KEY CỦA BẠN VÀO ĐÂY
     API_KEY = os.environ.get("GEMINI_API_KEY")
     if not API_KEY:
         print("Chưa đặt biến môi trường GEMINI_API_KEY. Thoát.")
