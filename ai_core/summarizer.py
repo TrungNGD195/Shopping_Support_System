@@ -49,7 +49,7 @@ class ReviewSummarizer:
         except Exception as e:
             error_msg = str(e)
             if "429" in error_msg or "quota" in error_msg.lower():
-                return "Hệ thống AI tóm tắt đang tạm thời quá tải (vượt giới hạn miễn phí của Gemini). Vui lòng thử lại sau vài phút."
+                return "Hệ thống AI tóm tắt đang tạm thời quá tải. Vui lòng thử lại sau vài phút."
             return "Tính năng tóm tắt bằng AI tạm thời không khả dụng."
 
 if __name__ == "__main__":
