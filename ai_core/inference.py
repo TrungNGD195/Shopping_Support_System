@@ -50,6 +50,29 @@ class ABSAPredictor:
                 
         return results
 
+class SpamPredictor:
+    def __init__(self, model_path):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Đang tải mô hình Spam Filter từ: {model_path} lên {self.device}...")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_path).to(self.device)
+
+    def is_spam(self, comment):
+        inputs = self.tokenizer(
+            comment, 
+            padding="max_length", 
+            truncation=True, 
+            max_length=128, 
+            return_tensors="pt"
+        ).to(self.device)
+        
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            predicted_class = torch.argmax(outputs.logits, dim=-1).item()
+            
+        # Trong data train: 0 là Spam, 1 là Hợp lệ. Vì vậy trả về True nếu là Spam (0)
+        return predicted_class == 0
+
 if __name__ == "__main__":
     # Đường dẫn cố định tới thư mục giải nén model
     model_dir = r"d:\Shopping_Support_System\models\phobert-absa-final"
