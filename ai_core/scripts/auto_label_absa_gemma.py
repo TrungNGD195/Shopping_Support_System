@@ -82,13 +82,17 @@ Bình luận cần phân tích:
                 )
                 
                 text = response.choices[0].message.content.strip()
-                if text.startswith("```json"):
-                    text = text[7:-3].strip()
-                elif text.startswith("```"):
-                    text = text[3:-3].strip()
-                    
-                result = json.loads(text)
                 
+                # Bóc tách chính xác phần JSON nằm giữa { và }
+                start_idx = text.find('{')
+                end_idx = text.rfind('}')
+                
+                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                    json_str = text[start_idx:end_idx+1]
+                    result = json.loads(json_str)
+                else:
+                    raise ValueError("Gemma không trả về định dạng JSON hợp lệ")
+                    
                 with print_lock:
                     success_count += 1
                     print(f"[{success_count}/{len(df)}] Thành công: {comment[:30]}... -> Q:{result.get('Quality')} | P:{result.get('Price')} | D:{result.get('Delivery')} | S:{result.get('Service')}")
