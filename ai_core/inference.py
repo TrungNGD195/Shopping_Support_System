@@ -6,7 +6,7 @@ class ABSAPredictor:
     def __init__(self, model_path):
         # Tự động chọn GPU nếu có, nếu không thì dùng CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Đang tải mô hình từ: {model_path} lên {self.device}...")
+        print(f"Loading model from: {model_path} to {self.device}...")
         
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path).to(self.device)
