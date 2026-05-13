@@ -90,14 +90,24 @@ Bình luận cần phân tích:
                 if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
                     json_str = text[start_idx:end_idx+1]
                     result = json.loads(json_str)
+                    
+                    def safe_int(val):
+                        if isinstance(val, list): return int(val[0]) if len(val) > 0 else -1
+                        try: return int(val)
+                        except (ValueError, TypeError): return -1
+                        
+                    q = safe_int(result.get('Quality', -1))
+                    p = safe_int(result.get('Price', -1))
+                    d = safe_int(result.get('Delivery', -1))
+                    s = safe_int(result.get('Service', -1))
                 else:
                     raise ValueError("Gemma không trả về định dạng JSON hợp lệ")
                     
                 with print_lock:
                     success_count += 1
-                    print(f"[{success_count}/{len(df)}] Thành công: {comment[:30]}... -> Q:{result.get('Quality')} | P:{result.get('Price')} | D:{result.get('Delivery')} | S:{result.get('Service')}")
+                    print(f"[{success_count}/{len(df)}] Thành công: {comment[:30]}... -> Q:{q} | P:{p} | D:{d} | S:{s}")
                     
-                return index, result.get('Quality', -1), result.get('Price', -1), result.get('Delivery', -1), result.get('Service', -1)
+                return index, q, p, d, s
                 
             except Exception as e:
                 if attempt == 2:
