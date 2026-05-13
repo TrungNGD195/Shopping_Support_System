@@ -1,68 +1,33 @@
-@import "tailwindcss";
-
-@theme {
-  /* Primary — Saigon Red / Deep Orange */
-  --color-primary-50: #fef2f2;
-  --color-primary-100: #fee2e2;
-  --color-primary-500: #ef4444;
-  --color-primary-600: #dc2626;
-  --color-primary-700: #b91c1c;
-  --color-primary-900: #7f1d1d;
-
-  /* Warm neutrals */
-  --color-surface: #ffffff;
-  --color-background: #faf8f5;
-  --color-border: #e7e0d8;
-
-  /* Text */
-  --color-text-primary: #1a1a2e;
-  --color-text-secondary: #6b7280;
-
-  /* Sentiment */
-  --color-positive: #b45309;
-  --color-negative: #be123c;
-  --color-neutral-sentiment: #0d9488;
-
-  /* Semantic (Tailwind-compatible names) */
-  --color-success: #b45309;
-  --color-error: #be123c;
-  --color-warning: #0d9488;
-
-  /* Typography */
-  --font-sans: "Be Vietnam Pro", sans-serif;
-
-  /* Shadows */
-  --shadow-card: 0 1px 3px rgba(26, 26, 46, 0.06), 0 1px 2px rgba(26, 26, 46, 0.04);
-  --shadow-card-hover: 0 4px 12px rgba(26, 26, 46, 0.08), 0 2px 4px rgba(26, 26, 46, 0.04);
-  --shadow-warm: 0 2px 8px rgba(180, 83, 9, 0.08);
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-background text-text-primary font-sans antialiased;
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
   }
 }
 
 /* Verdict badges (rendered via dangerouslySetInnerHTML from API) */
 .verdict-good {
   @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold;
-  background: #fef3c7;
-  color: #92400e;
-  box-shadow: 0 1px 3px rgba(180, 83, 9, 0.12);
+  background: #ecfdf5;
+  color: #065f46;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.12);
 }
 
 .verdict-bad {
   @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold;
-  background: #ffe4e6;
-  color: #9f1239;
-  box-shadow: 0 1px 3px rgba(190, 18, 60, 0.12);
+  background: #fef2f2;
+  color: #991b1b;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.12);
 }
 
 .verdict-neutral {
   @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold;
-  background: #ccfbf1;
-  color: #115e59;
-  box-shadow: 0 1px 3px rgba(13, 148, 136, 0.12);
+  background: #fffbeb;
+  color: #92400e;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.12);
 }
 
 /* Animations */
@@ -103,13 +68,13 @@
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, #f0ece6 25%, #faf8f5 50%, #f0ece6 75%);
+  background: linear-gradient(90deg, #f1f5f9 25%, #f8fafc 50%, #f1f5f9 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 /* Selection color */
 ::selection {
-  background: #e0e7ff;
-  color: #312e81;
+  background: #dbeafe;
+  color: #1d4ed8;
 }

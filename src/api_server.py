@@ -242,36 +242,40 @@ def analyze_product(request: AnalyzeRequest):
     result_data["overview"]["total_khen"] = total_khen
     result_data["overview"]["total_che"] = total_che
 
-    # 4. Yêu cầu Gemini tóm tắt cho từng khía cạnh
+    # 4. Yêu cầu Gemini tóm tắt và lọc bình luận cho từng khía cạnh
     for aspect in result_data["aspects"]:
-        # Khử trùng nhưng giữ nguyên thứ tự (đã được sort theo độ dài từ scraper)
         pos_list = list(dict.fromkeys(result_data["aspects"][aspect]["highlights"]["positive"]))
         neg_list = list(dict.fromkeys(result_data["aspects"][aspect]["highlights"]["negative"]))
         
-        # Gán lại list và CHỈ GIỮ LẠI 5 câu dài/tâm huyết nhất theo yêu cầu
-        result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:5]
-        result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:5]
+        # Chỉ gửi tối đa 10 câu mỗi loại để Gemini xử lý nhanh, tránh quota
+        pos_list = pos_list[:10]
+        neg_list = neg_list[:10]
         
-        # Lấy tên tiếng Việt
         vi_name = result_data["aspects"][aspect]["name"]
         
-        if pos_list or neg_list:
-            summary_text = summarizer.summarize(vi_name, pos_list, neg_list)
-            result_data["aspects"][aspect]["summary"] = summary_text
+        if summarizer and (pos_list or neg_list):
+            try:
+                gemini_data = summarizer.summarize_and_extract(vi_name, pos_list, neg_list)
+                result_data["aspects"][aspect]["summary"] = gemini_data.get("summary", "Không thể tóm tắt.")
+                # Ghi đè lại ý kiến tiêu biểu bằng kết quả cắt tỉa của Gemini!
+                if gemini_data.get("positive_highlights"):
+                    result_data["aspects"][aspect]["highlights"]["positive"] = gemini_data["positive_highlights"]
+                else:
+                    result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:3]
+                    
+                if gemini_data.get("negative_highlights"):
+                    result_data["aspects"][aspect]["highlights"]["negative"] = gemini_data["negative_highlights"]
+                else:
+                    result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:3]
+            except Exception as e:
+                print(f"[WARNING] Gemini summary error for {aspect}: {e}")
+                result_data["aspects"][aspect]["summary"] = "Hệ thống AI đang quá tải."
+                result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:3]
+                result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:3]
         else:
             result_data["aspects"][aspect]["summary"] = "Không có bình luận nào về khía cạnh này."
-
-    # 4. Gọi Gemini API để tóm tắt từng khía cạnh (nếu có summarizer)
-    if summarizer:
-        for aspect_key, aspect_data in result_data["aspects"].items():
-            pos = aspect_data["highlights"]["positive"]
-            neg = aspect_data["highlights"]["negative"]
-            if pos or neg:
-                try:
-                    summary = summarizer.summarize(aspect_data["name"], pos, neg)
-                    result_data["aspects"][aspect_key]["summary"] = summary
-                except Exception as e:
-                    print(f"[WARNING] Gemini summary error for {aspect_key}: {e}")
+            result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:3]
+            result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:3]
 
     return result_data
 
