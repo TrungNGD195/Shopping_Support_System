@@ -90,16 +90,16 @@ Bình luận cần phân tích:
     print(f"\\nHOÀN TẤT! Đã lưu kết quả gán nhãn chuẩn vào {output_csv}")
 
 if __name__ == "__main__":
-    # Gán nhãn cho file bình luận tiêu cực
+    # Gán nhãn cho toàn bộ file bình luận tiêu cực
     label_dataset_with_gemma(
         input_csv="../../data/cleaned_negative_reviews.csv", 
         output_csv="../../data/gemma_labeled_negative.csv", 
-        limit=50 # Đổi thành None để chạy toàn bộ file
+        limit=None
     )
     
-    # Gán nhãn cho file bình luận tích cực
+    # Gán nhãn cho toàn bộ file bình luận tích cực
     label_dataset_with_gemma(
         input_csv="../../data/cleaned_positive_reviews.csv", 
         output_csv="../../data/gemma_labeled_positive.csv", 
-        limit=50 # Đổi thành None để chạy toàn bộ file
+        limit=None
     )
