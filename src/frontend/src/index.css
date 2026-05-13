@@ -16,6 +16,16 @@
   --color-success: #059669;
   --color-error: #dc2626;
   --color-warning: #d97706;
+  
+  /* Semantic mappings for the UI components */
+  --color-surface: #ffffff;
+  --color-background: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #64748b;
+  --color-positive: #059669;
+  --color-negative: #dc2626;
+  --color-neutral-sentiment: #3b82f6;
 
   --font-sans: "Inter", sans-serif;
 
