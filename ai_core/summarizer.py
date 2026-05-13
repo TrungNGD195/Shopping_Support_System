@@ -38,7 +38,7 @@ class ReviewSummarizer:
         prompt = f"""
 Bạn là chuyên gia phân tích đánh giá sản phẩm.
 Tóm tắt ngắn gọn Ưu/Nhược điểm về khía cạnh '{aspect}' từ các bình luận dưới đây.
-Đồng thời trích xuất tối đa 2 câu khen nổi bật nhất và 2 câu chê nổi bật nhất (trích nguyên văn, ngắn gọn).
+Đồng thời trích xuất tối đa 5 câu khen nổi bật nhất và 5 câu chê nổi bật nhất (trích nguyên văn, ngắn gọn).
 
 Bình luận Tích cực:
 {positive_comments[:20]}
@@ -49,14 +49,14 @@ Bình luận Tiêu cực:
 Trả về kết quả bằng ĐÚNG ĐỊNH DẠNG JSON sau, không giải thích gì thêm:
 {{
   "summary": "Đánh giá chung...",
-  "positive_highlights": ["câu khen 1", "câu khen 2"],
-  "negative_highlights": ["câu chê 1", "câu chê 2"]
+  "positive_highlights": ["câu khen 1", "câu khen 2", "câu khen 3", "câu khen 4", "câu khen 5"],
+  "negative_highlights": ["câu chê 1", "câu chê 2", "câu chê 3", "câu chê 4", "câu chê 5"]
 }}
 """
         fallback_result = {
             "summary": "Hệ thống AI hiện đang quá tải. Dưới đây là các bình luận thô đã được lọc:",
-            "positive_highlights": positive_comments[:2],
-            "negative_highlights": negative_comments[:2]
+            "positive_highlights": positive_comments[:5],
+            "negative_highlights": negative_comments[:5]
         }
         
         # --- LỰA CHỌN 1: GEMINI API ---
