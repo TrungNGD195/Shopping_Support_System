@@ -90,7 +90,7 @@ Trả về kết quả bằng ĐÚNG ĐỊNH DẠNG JSON sau, không giải thí
                     {"role": "system", "content": "Bạn trả về kết quả định dạng JSON thuần túy."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=512,
+                max_tokens=2048,
                 temperature=0.1
             )
             text = response.choices[0].message.content.strip()

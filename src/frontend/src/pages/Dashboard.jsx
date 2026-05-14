@@ -205,8 +205,19 @@ const Dashboard = () => {
           </div>
 
           <div className="flex flex-col lg:flex-row">
-            {/* Chart */}
-            <div className="w-full lg:w-2/5 p-6 border-b lg:border-b-0 lg:border-r border-border flex flex-col items-center justify-center min-h-[280px]">
+            {/* Left Column: Product Info & Chart */}
+            <div className="w-full lg:w-2/5 p-6 border-b lg:border-b-0 lg:border-r border-border flex flex-col items-center min-h-[280px]">
+              
+              {/* Product Info */}
+              <div className="w-full mb-6 pb-6 border-b border-border flex flex-col items-center text-center">
+                <div className="w-24 h-24 rounded-lg overflow-hidden border border-border shadow-sm mb-3 bg-white">
+                  <img src={data.product_info?.image} alt={data.product_info?.name} className="w-full h-full object-contain" />
+                </div>
+                <h3 className="text-sm font-bold text-text-primary px-2 line-clamp-2" title={data.product_info?.name}>
+                  {data.product_info?.name}
+                </h3>
+              </div>
+
               {chartData.length > 0 ? (
                 <>
                   <h3 className="text-xs font-bold text-text-primary w-full text-center mb-4 uppercase tracking-wider">Phân bố cảm xúc</h3>
