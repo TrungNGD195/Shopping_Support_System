@@ -100,8 +100,8 @@ def analyze_product(request: AnalyzeRequest):
                 if match:
                     name = match.group(1).replace('-', ' ')
                     info["name"] = name
-                    # Rút gọn tên sản phẩm để tìm ảnh chính xác hơn (khoảng 8 từ đầu tiên)
-                    search_name = " ".join(name.split(" ")[:8])
+                    # Rút gọn tên sản phẩm để tìm ảnh chính xác hơn và thêm keyword "shopee" để ép tìm ảnh mua sắm
+                    search_name = " ".join(name.split(" ")[:8]) + " shopee"
                     
                     # Dùng AI Search (DuckDuckGo) để tìm đúng ảnh sản phẩm đó trên mạng
                     try:
