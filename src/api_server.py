@@ -15,10 +15,9 @@ from scraper import get_reviews_from_url
 # Import Gemini summarizer (optional — only used if API key is configured)
 summarizer = None
 try:
-    import sys as _sys
     _ai_core_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ai_core")
-    if _ai_core_path not in _sys.path:
-        _sys.path.insert(0, _ai_core_path)
+    if _ai_core_path not in sys.path:
+        sys.path.append(_ai_core_path)
     from summarizer import ReviewSummarizer
 except ImportError:
     ReviewSummarizer = None
