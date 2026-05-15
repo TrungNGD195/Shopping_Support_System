@@ -37,6 +37,7 @@ __pycache__/
 
 # Process & Temp Files
 post_training_roadmap.md
+BACKEND_DEFENSE_GUIDE.md
 tiki_urls*.txt
 *.pdf
 

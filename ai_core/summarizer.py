@@ -38,8 +38,10 @@ class ReviewSummarizer:
         prompt = f"""
 Bạn là chuyên gia phân tích đánh giá sản phẩm.
 Tóm tắt ngắn gọn Ưu/Nhược điểm về khía cạnh '{aspect}' từ các bình luận dưới đây.
-Đồng thời trích xuất tối đa 5 lời khen nổi bật nhất và 5 lời chê nổi bật nhất (hãy trích xuất nguyên văn cả câu dài để giữ đầy đủ ngữ cảnh, không cắt xén quá ngắn).
-LƯU Ý QUAN TRỌNG: Hãy KIỂM DUYỆT và LOẠI BỎ hoàn toàn các bình luận rác (spam), thơ ca, quảng cáo, hoặc đánh giá xin xu (ví dụ: "Hình ảnh mang tính chất nhận xu", "giao hàng nhanh"... nhưng không liên quan sản phẩm). Chỉ chọn những bình luận THỰC SỰ ĐÁNH GIÁ SẢN PHẨM vào danh sách highlights!
+Đồng thời trích xuất các lời khen và lời chê nổi bật nhất (tối đa 5 câu mỗi loại, có bao nhiêu trích bấy nhiêu, TUYỆT ĐỐI KHÔNG BỊA THÊM HOẶC CẮT NHỎ CÂU). Hãy giữ nguyên văn câu dài để đảm bảo ngữ cảnh.
+LƯU Ý QUAN TRỌNG: 
+1. BỎ HOÀN TOÀN các bình luận rác, xin xu (ví dụ: "giao hàng nhanh"... nhưng không liên quan).
+2. LỌC CHẶT CHẼ THEO KHÍA CẠNH: Nếu khía cạnh đang xét là '{aspect}', nhưng bình luận hoàn toàn nói về thứ khác (ví dụ xét "Giao hàng" nhưng bình luận lại nói về "Nấu cơm lâu chín", "Nhựa mỏng"), BẮT BUỘC PHẢI LOẠI BỎ bình luận đó khỏi danh sách highlights. Chỉ giữ lại những câu THỰC SỰ nhắc tới '{aspect}'.
 
 Bình luận Tích cực:
 {positive_comments[:20]}
@@ -50,8 +52,8 @@ Bình luận Tiêu cực:
 Trả về kết quả bằng ĐÚNG ĐỊNH DẠNG JSON sau, không giải thích gì thêm:
 {{
   "summary": "Đánh giá chung...",
-  "positive_highlights": ["câu khen dài 1", "câu khen dài 2", "câu khen dài 3", "câu khen dài 4", "câu khen dài 5"],
-  "negative_highlights": ["câu chê dài 1", "câu chê dài 2", "câu chê dài 3", "câu chê dài 4", "câu chê dài 5"]
+  "positive_highlights": ["câu khen 1", "câu khen 2"],
+  "negative_highlights": ["câu chê 1", "câu chê 2", "câu chê 3"]
 }}
 """
         fallback_result = {

@@ -55,7 +55,7 @@ def get_reviews_from_url(url: str) -> list[str]:
             neg_path = os.path.join("data", "negative_reviews.csv")
             tiki_comments = []
             
-            def get_longest_comments(path, prod_id, limit=25):
+            def get_longest_comments(path, prod_id, limit=150):
                 if not os.path.exists(path) or not prod_id: return []
                 df = pd.read_csv(path, dtype={'product_id': str})
                 exact_df = df[df['product_id'] == prod_id]
@@ -65,8 +65,8 @@ def get_reviews_from_url(url: str) -> list[str]:
                     return comments[:limit]
                 return []
                 
-            tiki_comments.extend(get_longest_comments(pos_path, product_id, 25))
-            tiki_comments.extend(get_longest_comments(neg_path, product_id, 25))
+            tiki_comments.extend(get_longest_comments(pos_path, product_id, 150))
+            tiki_comments.extend(get_longest_comments(neg_path, product_id, 150))
             
             if tiki_comments:
                 time.sleep(1)
@@ -88,7 +88,7 @@ def get_reviews_from_url(url: str) -> list[str]:
             shopee_comments = []
             
             # Hàm đọc và lọc comment, ưu tiên DÀI NHẤT
-            def get_longest_shopee_comments(path, prod_id, limit=25):
+            def get_longest_shopee_comments(path, prod_id, limit=150):
                 if not os.path.exists(path) or not prod_id: return []
                 df = pd.read_csv(path, dtype={'product_id': str})
                 
@@ -99,9 +99,9 @@ def get_reviews_from_url(url: str) -> list[str]:
                     return comments[:limit]
                 return []
             
-            # Lấy 25 câu khen dài nhất + 25 câu chê dài nhất = 50 câu cân bằng
-            shopee_comments.extend(get_longest_shopee_comments(pos_path, shopee_id, 25))
-            shopee_comments.extend(get_longest_shopee_comments(neg_path, shopee_id, 25))
+            # Lấy 150 câu khen dài nhất + 150 câu chê dài nhất = 300 câu cân bằng
+            shopee_comments.extend(get_longest_shopee_comments(pos_path, shopee_id, 150))
+            shopee_comments.extend(get_longest_shopee_comments(neg_path, shopee_id, 150))
                 
             if shopee_comments:
                 time.sleep(1)

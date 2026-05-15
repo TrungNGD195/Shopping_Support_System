@@ -141,16 +141,21 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="bg-surface p-6 rounded-xl border border-border shadow-card flex flex-col justify-between">
-            <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Tỷ lệ Khen / Chê</span>
-            <div className="mt-1 flex items-end gap-3">
+          {/* Ratio Widget */}
+          <div className="bg-surface border border-border rounded-xl p-5 shadow-card flex flex-col justify-center relative overflow-hidden animate-fade-in-up-delay-2">
+            <div className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">Tỷ lệ Khen / Chê</div>
+            <div className="flex items-center gap-4 mt-1">
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-positive">{overview.total_khen}</span>
+                <span className="text-4xl font-extrabold text-positive">
+                  {overview.total_khen + overview.total_che > 0 ? Math.round((overview.total_khen / (overview.total_khen + overview.total_che)) * 100) : 0}%
+                </span>
                 <span className="text-sm text-text-secondary">khen</span>
               </div>
               <span className="text-2xl text-border font-light">/</span>
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-negative">{overview.total_che}</span>
+                <span className="text-4xl font-extrabold text-negative">
+                  {overview.total_khen + overview.total_che > 0 ? Math.round((overview.total_che / (overview.total_khen + overview.total_che)) * 100) : 0}%
+                </span>
                 <span className="text-sm text-text-secondary">chê</span>
               </div>
             </div>
