@@ -19,9 +19,9 @@ def get_reviews_from_url(url: str) -> list[str]:
         if os.path.exists(csv_path):
             try:
                 df = pd.read_csv(csv_path)
-                if 'content' in df.columns:
+                if 'comment' in df.columns:
                     # Lấy các bình luận không rỗng
-                    real_comments = df['content'].dropna().tolist()
+                    real_comments = df['comment'].dropna().tolist()
                     if real_comments:
                         # Lấy ngẫu nhiên 5-8 bình luận thật
                         time.sleep(1) # Mô phỏng độ trễ
