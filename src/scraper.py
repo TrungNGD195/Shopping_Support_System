@@ -23,14 +23,54 @@ def get_reviews_from_url(url: str) -> list[str]:
                     # Lấy các bình luận không rỗng
                     real_comments = df['comment'].dropna().tolist()
                     if real_comments:
-                        # Lấy ngẫu nhiên 5-8 bình luận thật
+                        # Ưu tiên lấy 50 bình luận DÀI NHẤT và CHI TIẾT NHẤT
+                        real_comments.sort(key=lambda x: len(str(x)), reverse=True)
                         time.sleep(1) # Mô phỏng độ trễ
-                        random.shuffle(real_comments)
-                        return real_comments[:random.randint(5, 8)]
+                        return real_comments[:50]
             except Exception as e:
                 print(f"Lỗi đọc file CSV {csv_path}: {e}")
 
-    # 2. Dữ liệu MOCK dự phòng (nếu nhập link lạ)
+    # 2. Xử lý link Shopee (Lấy chính xác bình luận của sản phẩm nếu có)
+    if "shopee.vn" in url.lower():
+        # Lấy Product ID từ link Shopee (VD: i.12345.28506866571 -> 28506866571)
+        match_shopee = re.search(r'-i\.\d+\.(\d+)', url) or re.search(r'/product/\d+/(\d+)', url)
+        
+        try:
+            pos_path = os.path.join("data", "positive_reviews.csv")
+            neg_path = os.path.join("data", "negative_reviews.csv")
+            shopee_comments = []
+            
+            # Hàm đọc và lọc comment, ưu tiên DÀI NHẤT
+            def get_longest_shopee_comments(path, prod_id, limit=25):
+                if not os.path.exists(path): return []
+                df = pd.read_csv(path, dtype={'product_id': str})
+                
+                if prod_id:
+                    exact_df = df[df['product_id'] == prod_id]
+                    if not exact_df.empty:
+                        comments = exact_df['comment'].dropna().tolist()
+                        comments.sort(key=lambda x: len(str(x)), reverse=True)
+                        return comments[:limit]
+                        
+                # Nếu không có ID, lấy ngẫu nhiên một mẫu rồi sắp xếp lấy câu dài nhất
+                comments = df['comment'].dropna().sample(n=min(200, len(df))).tolist()
+                comments.sort(key=lambda x: len(str(x)), reverse=True)
+                return comments[:limit]
+
+            shopee_id = match_shopee.group(1) if match_shopee else None
+            
+            # Lấy 25 câu khen dài nhất + 25 câu chê dài nhất = 50 câu cân bằng
+            shopee_comments.extend(get_longest_shopee_comments(pos_path, shopee_id, 25))
+            shopee_comments.extend(get_longest_shopee_comments(neg_path, shopee_id, 25))
+                
+            if shopee_comments:
+                time.sleep(1)
+                random.shuffle(shopee_comments) # Xáo trộn khen/chê để không bị cụm
+                return shopee_comments
+        except Exception as e:
+            print(f"Lỗi đọc dữ liệu Shopee: {e}")
+
+    # 3. Dữ liệu MOCK dự phòng (nếu nhập link lạ)
     mock_comments = [
         "Chất vải mỏng hơn mình nghĩ, form áo thì tạm được nhưng đường chỉ may ẩu quá, nhiều chỉ thừa. Giao hàng thì siêu lâu, chờ hơn 1 tuần mới tới.",
         "Áo đẹp tuyệt vời nha mọi người, mặc cực kỳ tôn dáng và mát mẻ. Rất đáng đồng tiền bát gạo. Đóng gói cẩn thận, shop chuẩn bị hàng nhanh, 10 điểm!",
@@ -43,4 +83,4 @@ def get_reviews_from_url(url: str) -> list[str]:
     
     time.sleep(random.uniform(0.5, 1.5))
     random.shuffle(mock_comments)
-    return mock_comments[:random.randint(5, 8)]
+    return mock_comments[:20]

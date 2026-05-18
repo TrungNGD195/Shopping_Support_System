@@ -40,9 +40,9 @@ class ReviewSummarizer:
         """
         
         try:
-            # Sử dụng model gemini-flash-latest (tự động chọn phiên bản có hỗ trợ free tier)
+            # Sử dụng model gemini-2.0-flash (Quota 1500 request/ngày)
             response = self.client.models.generate_content(
-                model='gemini-flash-latest',
+                model='gemini-2.0-flash',
                 contents=prompt
             )
             return response.text.strip()
