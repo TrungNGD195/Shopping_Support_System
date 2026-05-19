@@ -69,7 +69,8 @@ class SpamPredictor:
             outputs = self.model(**inputs)
             predicted_class = torch.argmax(outputs.logits, dim=-1).item()
             
-        return predicted_class == 1
+        # Trong data train: 0 là Spam, 1 là Hợp lệ. Vì vậy trả về True nếu là Spam (0)
+        return predicted_class == 0
 
 if __name__ == "__main__":
     # Đường dẫn cố định tới thư mục giải nén model
