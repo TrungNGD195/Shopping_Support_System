@@ -43,35 +43,36 @@ def assign_label(text, aspect):
     neg_keywords = KEYWORDS[aspect]['negative']
     
     for i, word in enumerate(words):
-        # Check window for negations (up to 3 words before)
+        # Tăng khoảng cách cửa sổ bắt từ phủ định lên 5 từ
         has_negation = False
-        start_idx = max(0, i - 3)
+        start_idx = max(0, i - 5)
         if any(w in NEGATIONS for w in words[start_idx:i]):
             has_negation = True
             
-        # Check negative keywords
-        if any(kw in word for kw in neg_keywords):
-            # Cẩn thận trường hợp "không tệ" -> thành tích cực
+        # Loại trừ chữ "hay" khi nó đóng vai trò là "hoặc" (thường đứng giữa 2 tính từ xấu)
+        if word == 'hay' and (i > 0 and i < len(words)-1):
+            if any(bad in words[i-1] for bad in neg_keywords) or any(bad in words[i+1] for bad in neg_keywords):
+                continue
+
+        if any(kw == word for kw in neg_keywords):
             if has_negation:
                 pos_score += 1
             else:
                 neg_score += 1
                 
-        # Check positive keywords
-        if any(kw in word for kw in pos_keywords):
-            # Nếu có từ phủ định trước đó -> thành tiêu cực
+        if any(kw == word for kw in pos_keywords):
             if has_negation:
                 neg_score += 1
             else:
                 pos_score += 1
 
-    # Nếu nhắc đến cả khen và chê cho 1 khía cạnh, chọn cái nào nhiều hơn
     if pos_score > 0 and neg_score == 0:
         return 2  # Tích cực
     elif neg_score > 0 and pos_score == 0:
         return 0  # Tiêu cực
     elif pos_score > 0 and neg_score > 0:
-        return 2 if pos_score > neg_score else 0
+        # Xử lý Tie (Hòa): Nếu khen chê bằng nhau, ưu tiên Khen (vì đa số là review 5 sao)
+        return 2 if pos_score >= neg_score else 0
     elif pos_score == 0 and neg_score == 0:
         # Nếu có từ khóa liên quan đến aspect nhưng không rõ khen chê (trung tính)
         aspect_indicators = {
