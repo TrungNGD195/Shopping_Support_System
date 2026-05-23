@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     global ai_station, spam_station, summarizer
     print("[INFO] Dang nap mo hinh AI vao RAM...")
     model_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'phobert-absa-final')
-    spam_dir = os.path.join(os.path.dirname(__file__), '..', 'phobert_spam')
+    spam_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'phobert_spam')
     
     ai_station = ABSAPredictor(model_dir)
     if os.path.exists(spam_dir):
