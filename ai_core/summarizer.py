@@ -43,14 +43,17 @@ class ReviewSummarizer:
         """
         
         try:
-            # Sử dụng model gemini-flash-latest (tự động chọn phiên bản có hỗ trợ free tier)
+            # Sử dụng model gemini-2.0-flash (Quota 1500 request/ngày)
             response = self.client.models.generate_content(
-                model='gemini-flash-latest',
+                model='gemini-2.0-flash',
                 contents=prompt
             )
             return response.text.strip()
         except Exception as e:
-            return f"Lỗi khi gọi API: {str(e)}"
+            error_msg = str(e)
+            if "429" in error_msg or "quota" in error_msg.lower():
+                return "Hệ thống AI tóm tắt đang tạm thời quá tải. Vui lòng thử lại sau vài phút."
+            return "Tính năng tóm tắt bằng AI tạm thời không khả dụng."
 
 if __name__ == "__main__":
     # BƯỚC 1: DÁN API KEY CỦA BẠN VÀO ĐÂY

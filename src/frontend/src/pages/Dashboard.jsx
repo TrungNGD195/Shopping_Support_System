@@ -81,8 +81,9 @@ const Dashboard = () => {
 
   if (!data) return null;
 
-  const { overview, aspects } = data;
-
+  const { overview, aspects, product_info } = data;
+  
+  // Chuẩn bị dữ liệu cho biểu đồ Donut
   const getChartData = (aspectKey) => {
     const stats = aspects[aspectKey].stats;
     const result = [];
@@ -124,13 +125,28 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 md:px-8 py-8">
-
-        {/* Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8 animate-fade-in-up">
-          <div className="bg-surface p-6 rounded-xl border border-border shadow-card flex flex-col justify-between">
-            <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Khuyến nghị AI</span>
-            <div className="text-2xl font-bold text-text-primary mt-1" dangerouslySetInnerHTML={{__html: overview.final_verdict}} />
+      {/* Main Content Area */}
+      <main className="flex-grow p-4 md:p-8 overflow-y-auto w-full">
+        
+        {/* Header Title & Product Info */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row gap-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm items-center md:items-start">
+            {product_info?.image && (
+              <div className="w-48 h-48 md:w-64 md:h-64 shrink-0 rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-slate-50 flex items-center justify-center">
+                <img src={product_info.image} alt={product_info.name} className="max-w-full max-h-full object-contain" />
+              </div>
+            )}
+            <div className="flex flex-col justify-center h-full py-2 w-full">
+              <h1 className="text-2xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-4 leading-tight">
+                {product_info?.name || "Báo cáo Phân tích Sản phẩm"}
+              </h1>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Nguồn dữ liệu:</span>
+                <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-primary-50 text-primary-700 px-4 py-2 rounded-lg font-bold hover:bg-primary-100 transition-colors">
+                  {url.includes('shopee') ? '🛍️ Shopee' : '📦 Tiki'}
+                </a>
+              </div>
+            </div>
           </div>
 
           <div className="bg-surface p-6 rounded-xl border border-border shadow-card flex flex-col justify-between">
