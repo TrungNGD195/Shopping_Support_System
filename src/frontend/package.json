@@ -1,28 +1,33 @@
 {
-  "name": "frontend",
+  "name": "shopping-support-frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint ."
   },
   "dependencies": {
-    "axios": "^1.6.0",
-    "lucide-react": "^0.300.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.0",
-    "recharts": "^2.10.0"
+    "axios": "^1.7.9",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.1",
+    "recharts": "^2.15.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.0",
-    "autoprefixer": "^10.4.16",
-    "eslint": "^8.55.0",
-    "postcss": "^8.4.32",
-    "tailwindcss": "^3.4.0",
-    "vite": "^5.0.0"
+    "@eslint/js": "^9.17.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.17.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "globals": "^15.14.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.0.5"
   }
 }
