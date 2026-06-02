@@ -71,7 +71,25 @@ def get_reviews_from_url(url: str) -> list[str]:
     if "shopee.vn" in url.lower():
         # Lấy Product ID từ link Shopee (VD: i.12345.28506866571 -> 28506866571)
         match_shopee = re.search(r'-i\.\d+\.(\d+)', url) or re.search(r'/product/\d+/(\d+)', url)
-        
+        shopee_id = match_shopee.group(1) if match_shopee else None
+
+        # 2a. ƯU TIÊN 1: Đọc từ file Excel chứa Demo Data (nếu có)
+        try:
+            excel_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Shopee_Reviews_3h34 (1).xlsx")
+            if os.path.exists(excel_path) and shopee_id:
+                df_excel = pd.read_excel(excel_path)
+                # Lọc các dòng có Link Sản Phẩm chứa shopee_id
+                matched_df = df_excel[df_excel['Link Sản Phẩm'].str.contains(shopee_id, na=False)]
+                if not matched_df.empty:
+                    excel_comments = matched_df['Nội dung'].dropna().tolist()
+                    if excel_comments:
+                        time.sleep(1)
+                        # Trả về các bình luận từ file Excel
+                        return excel_comments[:50]
+        except Exception as e:
+            print(f"Lỗi đọc file Excel Demo: {e}")
+
+        # 2b. ƯU TIÊN 2: Đọc từ file CSV (chỉ lấy đúng ID, KHÔNG lấy random)
         try:
             pos_path = os.path.join("data", "positive_reviews.csv")
             neg_path = os.path.join("data", "negative_reviews.csv")
@@ -79,22 +97,15 @@ def get_reviews_from_url(url: str) -> list[str]:
             
             # Hàm đọc và lọc comment, ưu tiên DÀI NHẤT
             def get_longest_shopee_comments(path, prod_id, limit=25):
-                if not os.path.exists(path): return []
+                if not os.path.exists(path) or not prod_id: return []
                 df = pd.read_csv(path, dtype={'product_id': str})
                 
-                if prod_id:
-                    exact_df = df[df['product_id'] == prod_id]
-                    if not exact_df.empty:
-                        comments = exact_df['comment'].dropna().tolist()
-                        comments.sort(key=lambda x: len(str(x)), reverse=True)
-                        return comments[:limit]
-                        
-                # Nếu không có ID, lấy ngẫu nhiên một mẫu rồi sắp xếp lấy câu dài nhất
-                comments = df['comment'].dropna().sample(n=min(200, len(df))).tolist()
-                comments.sort(key=lambda x: len(str(x)), reverse=True)
-                return comments[:limit]
-
-            shopee_id = match_shopee.group(1) if match_shopee else None
+                exact_df = df[df['product_id'] == prod_id]
+                if not exact_df.empty:
+                    comments = exact_df['comment'].dropna().tolist()
+                    comments.sort(key=lambda x: len(str(x)), reverse=True)
+                    return comments[:limit]
+                return []
             
             # Lấy 25 câu khen dài nhất + 25 câu chê dài nhất = 50 câu cân bằng
             shopee_comments.extend(get_longest_shopee_comments(pos_path, shopee_id, 25))
