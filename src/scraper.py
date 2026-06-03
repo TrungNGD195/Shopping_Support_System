@@ -46,26 +46,34 @@ def get_reviews_from_url(url: str) -> list[str]:
     Scraper tích hợp: Lấy dữ liệu bình luận thật từ file CSV dựa vào Product ID trên URL.
     Nếu không tìm thấy hoặc URL không hợp lệ, trả về dữ liệu Mock.
     """
-    # 1. Tìm Product ID trong URL (VD: tiki.vn/product-p24951095.html -> 24951095)
-    match = re.search(r'-p(\d+)\.html', url)
+    # 1. Tìm Product ID trong URL Tiki
+    match = re.search(r'-p(\d+)\.html', url) or re.search(r'p(\d+)\.html', url)
     if match:
         product_id = match.group(1)
-        csv_path = os.path.join("archive_raw_data", f"tiki_{product_id}.csv")
-        
-        # Nếu có file CSV thật từ quá trình crawl trước đó
-        if os.path.exists(csv_path):
-            try:
-                df = pd.read_csv(csv_path)
-                if 'comment' in df.columns:
-                    # Lấy các bình luận không rỗng
-                    real_comments = df['comment'].dropna().tolist()
-                    if real_comments:
-                        # Ưu tiên lấy 50 bình luận DÀI NHẤT và CHI TIẾT NHẤT
-                        real_comments.sort(key=lambda x: len(str(x)), reverse=True)
-                        time.sleep(1) # Mô phỏng độ trễ
-                        return real_comments[:50]
-            except Exception as e:
-                print(f"Lỗi đọc file CSV {csv_path}: {e}")
+        try:
+            pos_path = os.path.join("data", "positive_reviews.csv")
+            neg_path = os.path.join("data", "negative_reviews.csv")
+            tiki_comments = []
+            
+            def get_longest_comments(path, prod_id, limit=25):
+                if not os.path.exists(path) or not prod_id: return []
+                df = pd.read_csv(path, dtype={'product_id': str})
+                exact_df = df[df['product_id'] == prod_id]
+                if not exact_df.empty:
+                    comments = exact_df['comment'].dropna().tolist()
+                    comments.sort(key=lambda x: len(str(x)), reverse=True)
+                    return comments[:limit]
+                return []
+                
+            tiki_comments.extend(get_longest_comments(pos_path, product_id, 25))
+            tiki_comments.extend(get_longest_comments(neg_path, product_id, 25))
+            
+            if tiki_comments:
+                time.sleep(1)
+                random.shuffle(tiki_comments)
+                return tiki_comments
+        except Exception as e:
+            print(f"Lỗi đọc dữ liệu Tiki: {e}")
 
     # 2. Xử lý link Shopee (Lấy chính xác bình luận của sản phẩm nếu có)
     if "shopee.vn" in url.lower():
