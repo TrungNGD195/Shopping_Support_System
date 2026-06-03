@@ -73,23 +73,7 @@ def get_reviews_from_url(url: str) -> list[str]:
         match_shopee = re.search(r'-i\.\d+\.(\d+)', url) or re.search(r'/product/\d+/(\d+)', url)
         shopee_id = match_shopee.group(1) if match_shopee else None
 
-        # 2a. ƯU TIÊN 1: Đọc từ file Excel chứa Demo Data (nếu có)
-        try:
-            excel_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Shopee_Reviews_3h34 (1).xlsx")
-            if os.path.exists(excel_path) and shopee_id:
-                df_excel = pd.read_excel(excel_path)
-                # Lọc các dòng có Link Sản Phẩm chứa shopee_id
-                matched_df = df_excel[df_excel['Link Sản Phẩm'].str.contains(shopee_id, na=False)]
-                if not matched_df.empty:
-                    excel_comments = matched_df['Nội dung'].dropna().tolist()
-                    if excel_comments:
-                        time.sleep(1)
-                        # Trả về các bình luận từ file Excel
-                        return excel_comments[:50]
-        except Exception as e:
-            print(f"Lỗi đọc file Excel Demo: {e}")
-
-        # 2b. ƯU TIÊN 2: Đọc từ file CSV (chỉ lấy đúng ID, KHÔNG lấy random)
+        # 2b. Đọc từ file CSV (chỉ lấy đúng ID, KHÔNG lấy random)
         try:
             pos_path = os.path.join("data", "positive_reviews.csv")
             neg_path = os.path.join("data", "negative_reviews.csv")
