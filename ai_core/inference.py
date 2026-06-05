@@ -19,13 +19,13 @@ class ABSAPredictor:
             'Service': 'dịch vụ'
         }
         
-        # Map số sang chữ cho dễ đọc (theo train_absa.py: {-1:0, 0:1, 1:2, 2:3})
-        # Model 0 = Không nhắc tới, 1 = Chê, 2 = Bình thường, 3 = Khen
+        # Map số sang chữ cho dễ đọc theo đúng colab_train_absa.ipynb
+        # {-1: 3, 0: 0, 1: 1, 2: 2} => 0=Chê, 1=Bình thường, 2=Khen, 3=Không nhắc tới
         self.label_map = {
-            0: "Không nhắc tới",
-            1: "Tiêu cực (Chê)",
-            2: "Bình thường",
-            3: "Tích cực (Khen)"
+            0: "Tiêu cực (Chê)",
+            1: "Bình thường",
+            2: "Tích cực (Khen)",
+            3: "Không nhắc tới"
         }
 
     def predict(self, comment):

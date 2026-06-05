@@ -14,46 +14,62 @@ class ReviewSummarizer:
         # Khởi tạo client theo chuẩn thư viện google-genai mới nhất
         self.client = genai.Client(api_key=self.api_key)
 
-    def summarize(self, aspect, positive_comments, negative_comments):
+    def summarize_and_extract(self, aspect, positive_comments, negative_comments):
         """
-        Gửi danh sách bình luận Khen/Chê của 1 khía cạnh cho Gemini tóm tắt.
+        Gửi danh sách bình luận Khen/Chê của 1 khía cạnh cho Gemini tóm tắt VÀ trích xuất các câu nổi bật nhất.
         """
-        # Nếu không có bình luận nào thì bỏ qua
+        import json
         if not positive_comments and not negative_comments:
-            return "Không có đánh giá nào cho khía cạnh này."
+            return {
+                "summary": "Không có đánh giá nào cho khía cạnh này.",
+                "positive_highlights": [],
+                "negative_highlights": []
+            }
 
-        # Xây dựng câu lệnh (Prompt) ép AI làm theo ý mình
         prompt = f"""
-        Bạn là một reviewer công nghệ/chuyên gia mua sắm cực kỳ có tâm trên Shopee.
-        Tôi có một sản phẩm với các bình luận của khách hàng về khía cạnh '{aspect}'.
-        Hãy viết MỘT ĐOẠN VĂN DUY NHẤT (tầm 3-4 câu) tóm tắt lại cảm nhận chung của mọi người.
-        
-        YÊU CẦU BẮT BUỘC:
-        - Giọng văn tự nhiên, mượt mà, giống như một reviewer đang khuyên bạn bè (ví dụ: "Nhìn chung mọi người đều khen...", "Điểm trừ lớn nhất là...").
-        - Không gạch đầu dòng, không xưng "tôi" hay "bạn".
-        - Tổng hợp mượt mà cả khen và chê vào chung 1 đoạn văn.
+        Bạn là hệ thống phân tích đánh giá sản phẩm.
+        Khía cạnh đang phân tích: '{aspect}'.
 
-        Danh sách các lời KHEN:
-        {chr(10).join(['- ' + c for c in positive_comments]) if positive_comments else 'Không có lời khen nào.'}
-
-        Danh sách các lời CHÊ/PHÀN NÀN:
-        {chr(10).join(['- ' + c for c in negative_comments]) if negative_comments else 'Không có lời chê nào.'}
+        Nhiều bình luận dưới đây rất dài và chứa thông tin của các khía cạnh khác (ví dụ: đang xét Giá Cả nhưng bình luận lại nói cả về Giao Hàng).
         
-        Hãy viết đoạn tóm tắt thật hay:
+        NHIỆM VỤ:
+        1. Tóm tắt cảm nhận chung (3-4 câu) CHỈ về khía cạnh '{aspect}'.
+        2. Trích xuất tối đa 3 câu/cụm từ NGẮN (cắt bỏ phần thừa, chỉ lấy đúng phần nói về '{aspect}') đại diện cho Khen.
+        3. Trích xuất tối đa 3 câu/cụm từ NGẮN (chỉ lấy phần nói về '{aspect}') đại diện cho Chê.
+
+        Danh sách KHEN: {positive_comments}
+        Danh sách CHÊ: {negative_comments}
+        
+        BẮT BUỘC trả về ĐÚNG định dạng JSON (không có markdown ```json):
+        {{
+            "summary": "Đoạn tóm tắt...",
+            "positive_highlights": ["câu khen 1", "câu khen 2"],
+            "negative_highlights": ["câu chê 1", "câu chê 2"]
+        }}
         """
+        
+        fallback_result = {
+            "summary": "Hệ thống AI đang quá tải, không thể tóm tắt.",
+            "positive_highlights": positive_comments[:3],
+            "negative_highlights": negative_comments[:3]
+        }
         
         try:
-            # Sử dụng model gemini-2.0-flash (Quota 1500 request/ngày)
             response = self.client.models.generate_content(
                 model='gemini-2.0-flash',
                 contents=prompt
             )
-            return response.text.strip()
+            text = response.text.strip()
+            if text.startswith("```json"):
+                text = text[7:-3].strip()
+            if text.startswith("```"):
+                text = text[3:-3].strip()
+            
+            data = json.loads(text)
+            return data
         except Exception as e:
-            error_msg = str(e)
-            if "429" in error_msg or "quota" in error_msg.lower():
-                return "Hệ thống AI tóm tắt đang tạm thời quá tải. Vui lòng thử lại sau vài phút."
-            return "Tính năng tóm tắt bằng AI tạm thời không khả dụng."
+            print(f"Gemini API Error: {e}")
+            return fallback_result
 
 if __name__ == "__main__":
     # BƯỚC 1: DÁN API KEY CỦA BẠN VÀO ĐÂY
