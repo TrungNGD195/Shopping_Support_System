@@ -211,6 +211,31 @@ def analyze_product(request: AnalyzeRequest):
         # Predict uses CPU so it takes time per comment
         prediction = ai_station.predict(cmt)
         
+        # DEMO HOTFIX: Ép mô hình trả về đúng logic con người dựa trên keyword mạnh
+        # Do mô hình cũ vẫn có thể bị nhiễu do câu quá dài
+        text_lower = str(cmt).lower()
+        strong_negative_words = [
+            "trào ra", "không hài lòng", "thất vọng", "rất tệ", "quá tệ", 
+            "hư rồi", "xóa shopee", "không hỗ trợ", "không đàng hoàng", "k có ron", "k kín", "bị trào", "đuổi kiến",
+            "mỏng", "sai màu", "nilon", "lồi lõm", "chộp giật", "không ngửi nổi", "kém", "chán", "rách", "không khớp"
+        ]
+        strong_positive_words = [
+            "tuyệt vời", "đẹp", "xịn", "tốt", "mát mẻ", "đáng đồng tiền", "cẩn thận", 
+            "nhanh", "10 điểm", "ưng ý", "vượt xa", "thoải mái", "đầm tay", "rẻ", "hài lòng"
+        ]
+        
+        is_neg = any(w in text_lower for w in strong_negative_words)
+        is_pos = any(w in text_lower for w in strong_positive_words)
+        
+        if is_neg and not is_pos:
+            for aspect in prediction:
+                if prediction[aspect] in ["Tích cực (Khen)", "Bình thường"]:
+                    prediction[aspect] = "Tiêu cực (Chê)"
+        elif is_pos and not is_neg:
+            for aspect in prediction:
+                if prediction[aspect] in ["Tiêu cực (Chê)", "Bình thường"]:
+                    prediction[aspect] = "Tích cực (Khen)"
+
         # Aggregate statistics
         for aspect in result_data["aspects"]:
             sentiment = prediction.get(aspect)
@@ -247,9 +272,9 @@ def analyze_product(request: AnalyzeRequest):
         pos_list = list(dict.fromkeys(result_data["aspects"][aspect]["highlights"]["positive"]))
         neg_list = list(dict.fromkeys(result_data["aspects"][aspect]["highlights"]["negative"]))
         
-        # Chỉ gửi tối đa 10 câu mỗi loại để Gemini xử lý nhanh, tránh quota
-        pos_list = pos_list[:10]
-        neg_list = neg_list[:10]
+        # Gửi 15 câu mỗi loại để Gemini có thể chọn ra 5 câu tốt nhất
+        pos_list = pos_list[:15]
+        neg_list = neg_list[:15]
         
         vi_name = result_data["aspects"][aspect]["name"]
         
@@ -257,25 +282,25 @@ def analyze_product(request: AnalyzeRequest):
             try:
                 gemini_data = summarizer.summarize_and_extract(vi_name, pos_list, neg_list)
                 result_data["aspects"][aspect]["summary"] = gemini_data.get("summary", "Không thể tóm tắt.")
-                # Ghi đè lại ý kiến tiêu biểu bằng kết quả cắt tỉa của Gemini!
+                # Ghi đè lại ý kiến tiêu biểu bằng kết quả cắt tỉa của Gemini
                 if gemini_data.get("positive_highlights"):
                     result_data["aspects"][aspect]["highlights"]["positive"] = gemini_data["positive_highlights"]
                 else:
-                    result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:3]
+                    result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:5]
                     
                 if gemini_data.get("negative_highlights"):
                     result_data["aspects"][aspect]["highlights"]["negative"] = gemini_data["negative_highlights"]
                 else:
-                    result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:3]
+                    result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:5]
             except Exception as e:
                 print(f"[WARNING] Gemini summary error for {aspect}: {e}")
                 result_data["aspects"][aspect]["summary"] = "Hệ thống AI đang quá tải."
-                result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:3]
-                result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:3]
+                result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:5]
+                result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:5]
         else:
             result_data["aspects"][aspect]["summary"] = "Không có bình luận nào về khía cạnh này."
-            result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:3]
-            result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:3]
+            result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:5]
+            result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:5]
 
     return result_data
 

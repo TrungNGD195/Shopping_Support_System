@@ -34,8 +34,8 @@ class ReviewSummarizer:
         
         NHIỆM VỤ:
         1. Tóm tắt cảm nhận chung (3-4 câu) CHỈ về khía cạnh '{aspect}'.
-        2. Trích xuất tối đa 3 câu/cụm từ NGẮN (cắt bỏ phần thừa, chỉ lấy đúng phần nói về '{aspect}') đại diện cho Khen.
-        3. Trích xuất tối đa 3 câu/cụm từ NGẮN (chỉ lấy phần nói về '{aspect}') đại diện cho Chê.
+        2. Trích xuất tối đa 5 câu/cụm từ NGẮN (cắt bỏ phần thừa, chỉ lấy đúng phần nói về '{aspect}') đại diện cho Khen.
+        3. Trích xuất tối đa 5 câu/cụm từ NGẮN (chỉ lấy phần nói về '{aspect}') đại diện cho Chê.
 
         Danh sách KHEN: {positive_comments}
         Danh sách CHÊ: {negative_comments}
@@ -43,15 +43,15 @@ class ReviewSummarizer:
         BẮT BUỘC trả về ĐÚNG định dạng JSON (không có markdown ```json):
         {{
             "summary": "Đoạn tóm tắt...",
-            "positive_highlights": ["câu khen 1", "câu khen 2"],
-            "negative_highlights": ["câu chê 1", "câu chê 2"]
+            "positive_highlights": ["câu khen 1", "câu khen 2", "câu khen 3", "câu khen 4", "câu khen 5"],
+            "negative_highlights": ["câu chê 1", "câu chê 2", "câu chê 3", "câu chê 4", "câu chê 5"]
         }}
         """
         
         fallback_result = {
             "summary": "Hệ thống AI đang quá tải, không thể tóm tắt.",
-            "positive_highlights": positive_comments[:3],
-            "negative_highlights": negative_comments[:3]
+            "positive_highlights": positive_comments[:5],
+            "negative_highlights": negative_comments[:5]
         }
         
         try:

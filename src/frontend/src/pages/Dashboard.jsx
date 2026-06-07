@@ -86,9 +86,9 @@ const Dashboard = () => {
   const getChartData = (aspectKey) => {
     const stats = aspects[aspectKey].stats;
     const result = [];
-    if (stats['Khen'] > 0) result.push({ name: 'Khen', value: stats['Khen'], color: '#b45309' });
-    if (stats['Bình thường'] > 0) result.push({ name: 'Bình thường', value: stats['Bình thường'], color: '#0d9488' });
-    if (stats['Chê'] > 0) result.push({ name: 'Chê', value: stats['Chê'], color: '#be123c' });
+    if (stats['Khen'] > 0) result.push({ name: 'Khen', value: stats['Khen'], color: '#059669' });
+    if (stats['Bình thường'] > 0) result.push({ name: 'Bình thường', value: stats['Bình thường'], color: '#3b82f6' });
+    if (stats['Chê'] > 0) result.push({ name: 'Chê', value: stats['Chê'], color: '#dc2626' });
     return result;
   };
 
