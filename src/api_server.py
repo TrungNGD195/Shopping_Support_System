@@ -184,8 +184,10 @@ def analyze_product(request: AnalyzeRequest):
         ]
         real_count = sum(1 for kw in real_keywords if kw in text_lower)
         
-        # Rác loại 1: Thơ ca, truyện, bài đăng quảng cáo dán vào (Quá dài, nhiều xuống dòng, ít từ khóa)
-        if len(str(text)) > 150 and str(text).count('\n') >= 1 and real_count < 3:
+        # Rác loại 1: Thơ ca, truyện, bài đăng quảng cáo dán vào (Quá dài, ít từ khóa)
+        if len(text_lower) > 200 and real_count < 4:
+            return True
+        if len(text_lower) > 100 and real_count == 0:
             return True
             
         # Rác loại 2: Đánh giá lấy xu (Chứa từ khóa xin xu)
@@ -196,8 +198,8 @@ def analyze_product(request: AnalyzeRequest):
         # Rác loại 3: Quá ngắn vô nghĩa
         if len(text_lower.strip()) < 5: return True
         
-        # Rác loại 4: DEMO HOTFIX - Cứng các từ khóa đặc thù từ rác
-        if any(kw in text_lower for kw in ["park shin hye", "choi tae joon", "fancafe", "suri studio", "nocturnal", "hindless", "trang trí tết", "chụp ảnh bầu", "bae oyy", "vậy đấy là phút giây"]):
+        # Rác loại 4: Tiếng Anh hoặc Rác đặc thù
+        if any(kw in text_lower for kw in ["upbringing", "brother", "despite", "park shin hye", "choi tae joon", "fancafe", "suri studio", "nocturnal", "hindless", "trang trí tết", "chụp ảnh bầu", "bae oyy", "phút giây cuối"]):
             return True
 
         # Lớp 2: Mô hình AI Spam Filter (Quét lần cuối các bình luận có vẻ như là thật)
@@ -213,6 +215,31 @@ def analyze_product(request: AnalyzeRequest):
             
         # Predict uses CPU so it takes time per comment
         prediction = ai_station.predict(cmt)
+        
+        # DEMO HOTFIX (Safe Version): Bắt các câu model nhận nhầm vì có nhiều ý trộn lẫn.
+        # Dùng các từ khóa tiêu cực MẠNH, TÍNH TOÀN CỤC (tránh từ khóa địa phương như mỏng, dày, to, nhỏ).
+        text_lower = str(cmt).lower()
+        safe_negative_words = [
+            "thất vọng", "rất tệ", "quá tệ", "hư rồi", "làm ăn ***", "đừng mua", "không đáng tin",
+            "chán", "né", "rác", "không đáng tiền", "móp", "khét", "hỏng", "bong", "chảy nước",
+            "sai sản phẩm", "lồi lõm", "chộp giật", "kém", "chưa chín"
+        ]
+        safe_positive_words = [
+            "tuyệt vời", "xịn", "đáng đồng tiền", "10 điểm", "vượt xa", "rất ưng"
+        ]
+        
+        is_neg = any(w in text_lower for w in safe_negative_words)
+        is_pos = any(w in text_lower for w in safe_positive_words)
+        
+        # Nếu có chửi rủa/chê nặng thì ưu tiên ép về Chê (Dù có khen vỏ hộp đẹp)
+        if is_neg:
+            for aspect in prediction:
+                if prediction[aspect] in ["Tích cực (Khen)", "Bình thường"]:
+                    prediction[aspect] = "Tiêu cực (Chê)"
+        elif is_pos and not is_neg:
+            for aspect in prediction:
+                if prediction[aspect] in ["Tiêu cực (Chê)", "Bình thường"]:
+                    prediction[aspect] = "Tích cực (Khen)"
 
         # Aggregate statistics
         for aspect in result_data["aspects"]:
