@@ -172,20 +172,22 @@ def analyze_product(request: AnalyzeRequest):
         # Lớp 1: Lọc Heuristic (Keyword & Cấu trúc) - Chạy trước để bắt các mẫu lộ liễu
         text_lower = str(text).lower()
         real_keywords = [
-            "vải", "chất", "đẹp", "xấu", "rẻ", "đắt", "màu", "size", "form", "mặc", 
-            "giao", "shop", "gói", "tư", "vấn", "thơm", "xịn", "ok", "tốt", "ưng", "nhanh", "chậm",
-            "nồi", "máy", "thiết", "kế", "dùng", "sử", "dụng", "mua", "test", "hàng", "tiền", "giá",
-            "bảo hành", "chắc", "bền", "lỗi", "hư", "hỏng", "thích", "tuyệt", "kém", "tệ",
-            "áo", "quần", "ủi", "nước", "nhựa", "kim loại", "tạm", "ổn", "khen", "chê",
-            "thất vọng", "hài lòng", "đáng", "phí", "xứng", "chất lượng", "vừa", "rộng", "chật",
-            "ngắn", "dài", "mỏng", "dày", "cứng", "mềm", "mịn", "xù", "nóng", "mát",
-            "chạy", "êm", "ồn", "giặt", "sạch", "pin", "sạc", "màn", "âm thanh", "chuẩn",
-            "đóng gói", "cẩn thận", "nhẹ", "nặng", "to", "nhỏ", "bóp", "kéo", "khóa", "túi"
+            # Thời trang / Quần áo
+            "vải", "chất", "đẹp", "xấu", "màu", "size", "form", "mặc", "quần", "áo", "chỉ", "may", "mỏng", "dày", "cứng", "mềm", "mịn", "xù", "nóng", "mát", "rộng", "chật", "ngắn", "dài",
+            
+            # Đồ điện tử / Gia dụng
+            "nồi", "máy", "thiết", "kế", "dùng", "sử", "dụng", "cắm", "điện", "bảo", "hành", "lỗi", "hư", "hỏng", "chạy", "êm", "ồn", "giặt", "sạch", "pin", "sạc", "màn", "âm", "thanh", "chuẩn", "khét", "nấu", "chín", "sôi", "bếp", "nướng", "quạt",
+            
+            # Phụ kiện điện thoại
+            "kính", "cường", "lực", "ốp", "lưng", "dán", "viền", "trầy", "xước", "cảm", "ứng", "mượt",
+            
+            # Chung / Đánh giá
+            "rẻ", "đắt", "giao", "shop", "gói", "tư", "vấn", "thơm", "xịn", "ok", "tốt", "ưng", "nhanh", "chậm", "mua", "test", "hàng", "tiền", "giá", "chắc", "bền", "thích", "tuyệt", "kém", "tệ", "tạm", "ổn", "khen", "chê", "thất", "vọng", "hài", "lòng", "đáng", "phí", "xứng", "lượng", "đóng", "cẩn", "thận", "nhẹ", "nặng", "to", "nhỏ", "thật", "giả", "nhái", "chính", "hãng", "hình", "ảnh", "video"
         ]
         real_count = sum(1 for kw in real_keywords if kw in text_lower)
         
         # Rác loại 1: Thơ ca, truyện, bài đăng quảng cáo dán vào (Quá dài, ít từ khóa)
-        if len(text_lower) > 200 and real_count < 4:
+        if len(text_lower) > 200 and real_count < 5:
             return True
         if len(text_lower) > 100 and real_count == 0:
             return True
@@ -197,10 +199,6 @@ def analyze_product(request: AnalyzeRequest):
             
         # Rác loại 3: Quá ngắn vô nghĩa
         if len(text_lower.strip()) < 5: return True
-        
-        # Rác loại 4: Tiếng Anh hoặc Rác đặc thù
-        if any(kw in text_lower for kw in ["upbringing", "brother", "despite", "park shin hye", "choi tae joon", "fancafe", "suri studio", "nocturnal", "hindless", "trang trí tết", "chụp ảnh bầu", "bae oyy", "phút giây cuối"]):
-            return True
 
         # Lớp 2: Mô hình AI Spam Filter (Quét lần cuối các bình luận có vẻ như là thật)
         if spam_station:
