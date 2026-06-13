@@ -44,7 +44,10 @@ async def lifespan(app: FastAPI):
         
     # LƯU Ý: Khởi tạo với API Key của bạn (có thể để trong biến môi trường)
     api_key = "AIzaSyBjaku1UOU39XLS2IhIJolUSEtCcfFGYo8"
-    summarizer = ReviewSummarizer(api_key=api_key)
+    
+    # Cố tình truyền sai Gemini Key để ép hệ thống dùng Gemma 4 tóm tắt (Demo)
+    # VÀ PHẢI CẤP KEY CHO GEMMA thì nó mới chạy được!
+    summarizer = ReviewSummarizer(gemini_key="INVALID_KEY_TO_FORCE_GEMMA", gemma_key="gemma4-openclaw-2026")
     print("[INFO] Da nap thanh cong mo hinh AI va Gemini Summarizer!")
     yield
     ai_station = None
@@ -214,30 +217,8 @@ def analyze_product(request: AnalyzeRequest):
         # Predict uses CPU so it takes time per comment
         prediction = ai_station.predict(cmt)
         
-        # DEMO HOTFIX (Safe Version): Bắt các câu model nhận nhầm vì có nhiều ý trộn lẫn.
-        # Dùng các từ khóa tiêu cực MẠNH, TÍNH TOÀN CỤC (tránh từ khóa địa phương như mỏng, dày, to, nhỏ).
-        text_lower = str(cmt).lower()
-        safe_negative_words = [
-            "thất vọng", "rất tệ", "quá tệ", "hư rồi", "làm ăn ***", "đừng mua", "không đáng tin",
-            "chán", "né", "rác", "không đáng tiền", "móp", "khét", "hỏng", "bong", "chảy nước",
-            "sai sản phẩm", "lồi lõm", "chộp giật", "kém", "chưa chín"
-        ]
-        safe_positive_words = [
-            "tuyệt vời", "xịn", "đáng đồng tiền", "10 điểm", "vượt xa", "rất ưng"
-        ]
-        
-        is_neg = any(w in text_lower for w in safe_negative_words)
-        is_pos = any(w in text_lower for w in safe_positive_words)
-        
-        # Nếu có chửi rủa/chê nặng thì ưu tiên ép về Chê (Dù có khen vỏ hộp đẹp)
-        if is_neg:
-            for aspect in prediction:
-                if prediction[aspect] in ["Tích cực (Khen)", "Bình thường"]:
-                    prediction[aspect] = "Tiêu cực (Chê)"
-        elif is_pos and not is_neg:
-            for aspect in prediction:
-                if prediction[aspect] in ["Tiêu cực (Chê)", "Bình thường"]:
-                    prediction[aspect] = "Tích cực (Khen)"
+        # DEMO HOTFIX đã được gỡ bỏ.
+        # Hệ thống bây giờ sẽ dùng 100% kết quả dự đoán nguyên bản từ PhoBERT.
 
         # Aggregate statistics
         for aspect in result_data["aspects"]:
@@ -270,40 +251,43 @@ def analyze_product(request: AnalyzeRequest):
     result_data["overview"]["total_khen"] = total_khen
     result_data["overview"]["total_che"] = total_che
 
-    # 4. Yêu cầu Gemini tóm tắt và lọc bình luận cho từng khía cạnh
-    for aspect in result_data["aspects"]:
-        pos_list = list(dict.fromkeys(result_data["aspects"][aspect]["highlights"]["positive"]))
-        neg_list = list(dict.fromkeys(result_data["aspects"][aspect]["highlights"]["negative"]))
-        
-        # Gửi 15 câu mỗi loại để Gemini có thể chọn ra 5 câu tốt nhất
-        pos_list = pos_list[:15]
-        neg_list = neg_list[:15]
-        
-        vi_name = result_data["aspects"][aspect]["name"]
+    # 4. Yêu cầu Gemini tóm tắt và lọc bình luận cho từng khía cạnh (CHẠY SONG SONG)
+    import concurrent.futures
+
+    def summarize_aspect(aspect_key):
+        pos_list = list(dict.fromkeys(result_data["aspects"][aspect_key]["highlights"]["positive"]))[:15]
+        neg_list = list(dict.fromkeys(result_data["aspects"][aspect_key]["highlights"]["negative"]))[:15]
+        vi_name = result_data["aspects"][aspect_key]["name"]
         
         if summarizer and (pos_list or neg_list):
             try:
                 gemini_data = summarizer.summarize_and_extract(vi_name, pos_list, neg_list)
-                result_data["aspects"][aspect]["summary"] = gemini_data.get("summary", "Không thể tóm tắt.")
+                result_data["aspects"][aspect_key]["summary"] = gemini_data.get("summary", "Không thể tóm tắt.")
+                
                 # Ghi đè lại ý kiến tiêu biểu bằng kết quả cắt tỉa của Gemini
                 if gemini_data.get("positive_highlights"):
-                    result_data["aspects"][aspect]["highlights"]["positive"] = gemini_data["positive_highlights"]
+                    result_data["aspects"][aspect_key]["highlights"]["positive"] = gemini_data["positive_highlights"]
                 else:
-                    result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:5]
+                    result_data["aspects"][aspect_key]["highlights"]["positive"] = pos_list[:5]
                     
                 if gemini_data.get("negative_highlights"):
-                    result_data["aspects"][aspect]["highlights"]["negative"] = gemini_data["negative_highlights"]
+                    result_data["aspects"][aspect_key]["highlights"]["negative"] = gemini_data["negative_highlights"]
                 else:
-                    result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:5]
+                    result_data["aspects"][aspect_key]["highlights"]["negative"] = neg_list[:5]
             except Exception as e:
-                print(f"[WARNING] Gemini summary error for {aspect}: {e}")
-                result_data["aspects"][aspect]["summary"] = "Hệ thống AI đang quá tải."
-                result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:5]
-                result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:5]
+                print(f"[WARNING] Summary error for {aspect_key}: {e}")
+                result_data["aspects"][aspect_key]["summary"] = "Hệ thống AI đang quá tải."
+                result_data["aspects"][aspect_key]["highlights"]["positive"] = pos_list[:5]
+                result_data["aspects"][aspect_key]["highlights"]["negative"] = neg_list[:5]
         else:
-            result_data["aspects"][aspect]["summary"] = "Không có bình luận nào về khía cạnh này."
-            result_data["aspects"][aspect]["highlights"]["positive"] = pos_list[:5]
-            result_data["aspects"][aspect]["highlights"]["negative"] = neg_list[:5]
+            result_data["aspects"][aspect_key]["summary"] = "Không có bình luận nào về khía cạnh này."
+            result_data["aspects"][aspect_key]["highlights"]["positive"] = pos_list[:5]
+            result_data["aspects"][aspect_key]["highlights"]["negative"] = neg_list[:5]
+
+    # Thực thi đa luồng (Tối đa 4 luồng cho 4 khía cạnh)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(summarize_aspect, aspect) for aspect in result_data["aspects"]]
+        concurrent.futures.wait(futures)
 
     return result_data
 
