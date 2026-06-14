@@ -1,7 +1,10 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import transformers
 import os
 
+# Tắt cảnh báo rác (ví dụ: overflowing tokens) của transformers để terminal sạch sẽ
+transformers.logging.set_verbosity_error()
 class ABSAPredictor:
     def __init__(self, model_path):
         # Tự động chọn GPU nếu có, nếu không thì dùng CPU
@@ -75,7 +78,7 @@ class SpamPredictor:
 
 if __name__ == "__main__":
     # Đường dẫn cố định tới thư mục giải nén model
-    model_dir = r"d:\Shopping_Support_System\models\phobert-absa-final"
+    model_dir = r"d:\Shopping_Support_System\models\phobert-absa-gemma"
     
     if not os.path.exists(model_dir):
         print(f"LỖI: Không tìm thấy thư mục mô hình tại: {model_dir}")

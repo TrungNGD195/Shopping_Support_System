@@ -33,7 +33,7 @@ summarizer = None
 async def lifespan(app: FastAPI):
     global ai_station, spam_station, summarizer
     print("[INFO] Dang nap mo hinh AI vao RAM...")
-    model_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'phobert-absa-final')
+    model_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'phobert-absa-gemma')
     spam_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'phobert_spam')
     
     ai_station = ABSAPredictor(model_dir)
@@ -105,7 +105,7 @@ def analyze_product(request: AnalyzeRequest):
                     
                     # Dùng AI Search (DuckDuckGo) để tìm đúng ảnh sản phẩm đó trên mạng
                     try:
-                        from duckduckgo_search import DDGS
+                        from ddgs import DDGS
                         with DDGS() as ddgs:
                             results = list(ddgs.images(search_name, max_results=1))
                             if results:
