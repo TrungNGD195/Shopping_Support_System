@@ -20,3 +20,10 @@ accelerate
 fastapi
 uvicorn
 pydantic
+python-dotenv
+
+# External APIs (LLM & Search)
+google-genai
+openai
+ddgs
+duckduckgo-search
