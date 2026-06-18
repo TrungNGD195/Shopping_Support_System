@@ -33,29 +33,37 @@ class ABSAPredictor:
 
     def predict(self, comment):
         results = {}
-        for aspect_key, aspect_text in self.aspects.items():
-            # Ghép cặp: "chất lượng </s> bình luận"
-            inputs = self.tokenizer(
-                aspect_text, 
-                comment, 
-                padding="max_length", 
-                truncation=True, 
-                max_length=128, 
-                return_tensors="pt"
-            ).to(self.device)
+        aspect_keys = list(self.aspects.keys())
+        aspect_texts = [self.aspects[k] for k in aspect_keys]
+        comments_repeated = [comment] * len(aspect_texts)
+        
+        # Batch 4 khía cạnh vào cùng 1 lần suy luận (Tăng tốc gấp 4 lần)
+        inputs = self.tokenizer(
+            aspect_texts, 
+            comments_repeated, 
+            padding="max_length", 
+            truncation=True, 
+            max_length=128, 
+            return_tensors="pt"
+        ).to(self.device)
+        
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            logits = outputs.logits
+            predicted_classes = torch.argmax(logits, dim=-1).tolist()
             
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                logits = outputs.logits
-                predicted_class = torch.argmax(logits, dim=-1).item()
-                
-                results[aspect_key] = self.label_map[predicted_class]
+            for i, aspect_key in enumerate(aspect_keys):
+                results[aspect_key] = self.label_map[predicted_classes[i]]
                 
         return results
 
 class SpamPredictor:
-    def __init__(self, model_path):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self, model_path="models/phobert-absa-final"):
+        # Chuyển về đường dẫn mô hình cũ (phobert-absa-final)
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        model_path = os.path.join(base_dir, "models", "phobert-absa-final")
+        
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"Đang tải mô hình Spam Filter từ: {model_path} lên {self.device}...")
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path).to(self.device)
@@ -78,7 +86,7 @@ class SpamPredictor:
 
 if __name__ == "__main__":
     # Đường dẫn cố định tới thư mục giải nén model
-    model_dir = r"d:\Shopping_Support_System\models\phobert-absa-gemma"
+    model_dir = r"d:\Shopping_Support_System\models\phobert-absa-final"
     
     if not os.path.exists(model_dir):
         print(f"LỖI: Không tìm thấy thư mục mô hình tại: {model_dir}")

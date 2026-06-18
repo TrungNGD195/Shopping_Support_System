@@ -33,7 +33,7 @@ summarizer = None
 async def lifespan(app: FastAPI):
     global ai_station, spam_station, summarizer
     print("[INFO] Dang nap mo hinh AI vao RAM...")
-    model_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'phobert-absa-gemma')
+    model_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'phobert-absa-final')
     spam_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'phobert_spam')
     
     ai_station = ABSAPredictor(model_dir)
@@ -42,11 +42,9 @@ async def lifespan(app: FastAPI):
     else:
         print("[WARNING] Khong tim thay mo hinh Spam Filter!")
         
-    # LƯU Ý: Khởi tạo với API Key của bạn (có thể để trong biến môi trường)
     api_key = "AIzaSyBjaku1UOU39XLS2IhIJolUSEtCcfFGYo8"
     
     # Cố tình truyền sai Gemini Key để ép hệ thống dùng Gemma 4 tóm tắt (Demo)
-    # VÀ PHẢI CẤP KEY CHO GEMMA thì nó mới chạy được!
     summarizer = ReviewSummarizer(gemini_key="INVALID_KEY_TO_FORCE_GEMMA", gemma_key="gemma4-openclaw-2026")
     print("[INFO] Da nap thanh cong mo hinh AI va Gemini Summarizer!")
     yield
@@ -65,16 +63,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+#Quy định dữ liệu nhập vào (url) phải là một chuỗi ký tự
 class AnalyzeRequest(BaseModel):
     url: str
 
+#Endpoint API chính nhận dữ liệu URL và trả về kết quả phân tích
 @app.post("/api/analyze")
 def analyze_product(request: AnalyzeRequest):
     url = request.url
     if not url:
         raise HTTPException(status_code=400, detail="URL is required")
 
-    # 1. Lấy dữ liệu bình luận (từ Scraper giả lập)
+    # 1. Lấy dữ liệu bình luận (từ Scraper.py)
     comments = get_reviews_from_url(url)
     
     if not comments:
@@ -103,9 +103,10 @@ def analyze_product(request: AnalyzeRequest):
                     # Rút gọn tên sản phẩm để tìm ảnh chính xác hơn và thêm keyword "shopee" để ép tìm ảnh mua sắm
                     search_name = " ".join(name.split(" ")[:8]) + " shopee"
                     
-                    # Dùng AI Search (DuckDuckGo) để tìm đúng ảnh sản phẩm đó trên mạng
+                    # Dùng Search (DuckDuckGo) để tìm đúng ảnh sản phẩm đó trên mạng
+                    # Sử dụng DuckDuckGo vì Google Custom Search API có phí và giới hạn request, còn DDGS hoàn toàn miễn phí.
                     try:
-                        from ddgs import DDGS
+                        from ddgs import DDGS 
                         with DDGS() as ddgs:
                             results = list(ddgs.images(search_name, max_results=1))
                             if results:
@@ -119,7 +120,7 @@ def analyze_product(request: AnalyzeRequest):
     result_data = {
         "product_info": get_product_info(url),
         "overview": {
-            "total_analyzed_comments": len(comments), 
+            "total_analyzed_comments": 0,  # Will be updated later
             "final_verdict": "Đang tính toán...",
             "total_khen": 0,
             "total_che": 0
@@ -209,16 +210,25 @@ def analyze_product(request: AnalyzeRequest):
             
         return False
 
+    # Chỉ lấy đủ 100 bình luận KHÔNG phải rác
+    valid_comments = []
     for cmt in comments:
-        # Bỏ qua bình luận rác, thơ ca để không đưa vào Ý kiến tiêu biểu
-        if is_spam(cmt):
-            continue
+        if not is_spam(cmt):
+            valid_comments.append(cmt)
+        if len(valid_comments) == 100:
+            break
             
+    result_data["overview"]["total_analyzed_comments"] = len(valid_comments)
+
+    overview_khen = 0
+    overview_che = 0
+
+    for cmt in valid_comments:
         # Predict uses CPU so it takes time per comment
         prediction = ai_station.predict(cmt)
         
-        # DEMO HOTFIX đã được gỡ bỏ.
-        # Hệ thống bây giờ sẽ dùng 100% kết quả dự đoán nguyên bản từ PhoBERT.
+        has_khen = False
+        has_che = False
 
         # Aggregate statistics
         for aspect in result_data["aspects"]:
@@ -228,33 +238,39 @@ def analyze_product(request: AnalyzeRequest):
             if sentiment == "Tích cực (Khen)":
                 result_data["aspects"][aspect]["stats"]["Khen"] += 1
                 result_data["aspects"][aspect]["highlights"]["positive"].append(formatted_cmt)
+                has_khen = True
             elif sentiment == "Tiêu cực (Chê)":
                 result_data["aspects"][aspect]["stats"]["Chê"] += 1
                 result_data["aspects"][aspect]["highlights"]["negative"].append(formatted_cmt)
+                has_che = True
             elif sentiment == "Bình thường":
                 result_data["aspects"][aspect]["stats"]["Bình thường"] += 1
             else:
                 result_data["aspects"][aspect]["stats"]["Không nhắc tới"] += 1
+                
+        # Một bình luận có thể khen khía cạnh này nhưng chê khía cạnh kia
+        if has_khen:
+            overview_khen += 1
+        if has_che:
+            overview_che += 1
 
-    # 3. Tính toán Verdict tổng quan
-    total_khen = sum([result_data["aspects"][asp]["stats"]["Khen"] for asp in result_data["aspects"]])
-    total_che = sum([result_data["aspects"][asp]["stats"]["Chê"] for asp in result_data["aspects"]])
-
-    if total_khen > total_che:
+    # 3. Tính toán Verdict tổng quan dựa trên số bình luận KHEN và CHÊ
+    if overview_khen > overview_che:
         verdict_html = "<span class='verdict-good'>🟢 Rất Đáng Mua</span>"
-    elif total_che > total_khen:
+    elif overview_che > overview_khen:
         verdict_html = "<span class='verdict-bad'>🔴 Cần Cân Nhắc</span>"
     else:
         verdict_html = "<span class='verdict-neutral'>🟡 Phân vân (Trung lập)</span>"
 
     result_data["overview"]["final_verdict"] = verdict_html
-    result_data["overview"]["total_khen"] = total_khen
-    result_data["overview"]["total_che"] = total_che
+    result_data["overview"]["total_khen"] = overview_khen
+    result_data["overview"]["total_che"] = overview_che
 
     # 4. Yêu cầu Gemini tóm tắt và lọc bình luận cho từng khía cạnh (CHẠY SONG SONG)
     import concurrent.futures
 
     def summarize_aspect(aspect_key):
+        #lấy danh sách bình luận khen và chê cho từng khía cạnh mỗi cái 15 bình luận
         pos_list = list(dict.fromkeys(result_data["aspects"][aspect_key]["highlights"]["positive"]))[:15]
         neg_list = list(dict.fromkeys(result_data["aspects"][aspect_key]["highlights"]["negative"]))[:15]
         vi_name = result_data["aspects"][aspect_key]["name"]
