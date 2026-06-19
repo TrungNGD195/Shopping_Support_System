@@ -1,27 +1,36 @@
-# 🛒 Shopping Support System
+# 🛒 Hệ Thống Hỗ Trợ Mua Sắm Thông Minh (Shopping Support System)
 
-Hệ thống hỗ trợ mua sắm thông minh sử dụng AI, giúp phân tích cảm xúc (Khen/Chê) từ hàng ngàn bình luận của khách hàng trên các sàn TMĐT (Shopee, Lazada, Tiki). Hệ thống cung cấp Dashboard trực quan giúp người dùng đánh giá sản phẩm trước khi mua hàng.
+Ứng dụng thực tiễn của **NLP (Xử lý ngôn ngữ tự nhiên)** và **LLM (Mô hình ngôn ngữ lớn)** vào bài toán **ABSA (Aspect-Based Sentiment Analysis - Phân tích cảm xúc theo khía cạnh)**. Hệ thống tự động trích xuất bình luận từ các sàn TMĐT (Shopee, Tiki), ứng dụng mô hình **Google Gemma** để gán nhãn dữ liệu tự động (Auto-labeling) & lọc rác, sau đó dùng mô hình **PhoBERT** để phân loại cảm xúc (Khen/Chê/Trung lập) cho 4 khía cạnh: Chất lượng, Giá cả, Giao hàng, Dịch vụ. Cuối cùng, API của **Google Gemini** được sử dụng để tóm tắt thông minh. Tất cả được trình bày qua một Web Dashboard hiện đại.
 
-## 👥 Thành viên nhóm
-* **Nguyễn Gia Đức Trung - B23DCVT423:** AI Core (PhoBERT), Text Preprocessing & Frontend (React)
-* **Bế Quốc Khánh - B23DCCE049:** Data Crawler (Charted Sea API), Data Aggregation & Backend Logic
+## 👥 Đội Ngũ Phát Triển
 
-## 🛠 Công nghệ sử dụng
+Dự án được phân chia khối lượng công việc đồng đều, kết hợp chặt chẽ giữa kỹ thuật nền tảng và trải nghiệm người dùng:
 
-| Thành phần | Công nghệ |
+* **Bế Quốc Khánh (B23DCCE049) — Lead Backend & AI Core**
+  * **AI Core & Training:** Ứng dụng Google Gemma để gán nhãn dữ liệu tự động (Auto-labeling), sau đó trực tiếp huấn luyện mô hình cốt lõi PhoBERT ABSA bằng kỹ thuật Text-Pair Classification trên môi trường máy chủ (Kaggle/Colab).
+  * **System Architecture:** Thiết kế và phát triển toàn bộ kiến trúc API Backend bằng FastAPI, đảm bảo luồng xử lý dữ liệu tốc độ cao.
+  * **Data & AI Integration:** Xây dựng Data Pipeline lọc rác (Spam Filter), đồng thời tích hợp trọng số PhoBERT và Gemini API vào luồng suy luận tự động.
+
+* **Nguyễn Gia Đức Trung (B23DCVT423) — Lead Frontend & UI/UX**
+  * **Frontend Architecture:** Cấu trúc toàn bộ nền tảng Single Page Application (SPA) bằng React 19 và Vite, quản lý luồng State dữ liệu phức tạp.
+  * **Data Visualization:** Xây dựng hệ thống biểu đồ tương tác cấp cao (Recharts) nhằm biểu diễn trực quan các lát cắt thống kê cảm xúc đa chiều.
+  * **UI/UX & Design System:** Thiết kế trải nghiệm người dùng hiện đại, xây dựng hệ thống Design System nhất quán thông qua Tailwind CSS v4.
+  * **Performance Optimization:** Tối ưu hóa hiệu năng phía người dùng (Client-side Rendering) và xử lý bất đồng bộ (Async) mượt mà khi hệ thống tải dữ liệu AI.
+
+## 🛠 Công Nghệ Sử Dụng
+
+| Thành phần | Công nghệ cốt lõi |
 |---|---|
-| **Backend** | FastAPI, Uvicorn, Pydantic |
+| **Backend** | FastAPI, Uvicorn, Python 3.9+ |
 | **Frontend** | React 19, Vite, Tailwind CSS v4, Recharts |
-| **AI/NLP** | PyTorch, HuggingFace Transformers, PhoBERT v2 |
-| **Tiền xử lý** | Underthesea (Word Segmentation), Regex, Teencode Dictionary |
-| **Tóm tắt** | Gemini API (Google GenAI) |
-| **Crawler** | Charted Sea API, Selenium |
-| **Ngôn ngữ** | Python 3.9+, JavaScript (ES Modules) |
+| **AI / Machine Learning** | PyTorch, HuggingFace, PhoBERT v2 (ABSA), Google Gemma (Auto-labeling) |
+| **LLM & Summarization** | Google GenAI (Gemini API), Prompt Engineering |
+| **Data Processing** | Pandas, Regex Toolkit |
 
 ## ⚙️ Luồng hoạt động (Pipeline)
 
 ```
-[Người dùng nhập URL] → [Scraper thu thập bình luận] → [Text Preprocessing]
+[Người dùng nhập URL] → [Trích xuất dữ liệu & Lọc Spam]
          ↓
 [Mô hình PhoBERT ABSA phân tích] → [API trả kết quả JSON] → [Dashboard hiển thị]
          ↓
@@ -29,11 +38,13 @@ Hệ thống hỗ trợ mua sắm thông minh sử dụng AI, giúp phân tích 
 ```
 
 1. **Input:** Người dùng dán link sản phẩm vào giao diện Web.
-2. **Crawling:** Hệ thống thu thập bình luận từ sản phẩm đó.
-3. **Preprocessing:** Làm sạch văn bản, chuẩn hóa tiếng Việt, dịch teencode, tách từ (underthesea).
+2. **Data Extraction:** Hệ thống trích xuất bình luận của sản phẩm tương ứng từ tập dữ liệu (Dataset).
+3. **Spam Filtering:** Lọc bỏ các bình luận rác, đánh giá lấy xu, nội dung vô nghĩa bằng thuật toán Heuristic.
 4. **AI Inference:** Mô hình PhoBERT ABSA nhận cặp `[khía cạnh] + [bình luận]` và chấm điểm cảm xúc cho 4 khía cạnh: *Chất lượng, Giá cả, Giao hàng, Dịch vụ*.
 5. **Tóm tắt:** Gemini API tổng hợp các bình luận thành đoạn tóm tắt tự nhiên cho từng khía cạnh.
 6. **Output:** Dashboard hiển thị thống kê, biểu đồ, và tóm tắt ưu/nhược điểm.
+
+
 
 ## 📂 Cấu trúc dự án
 
