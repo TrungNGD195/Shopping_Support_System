@@ -44,8 +44,9 @@ async def lifespan(app: FastAPI):
         
     api_key = "AIzaSyBjaku1UOU39XLS2IhIJolUSEtCcfFGYo8"
     
-    # Cố tình truyền sai Gemini Key để ép hệ thống dùng Gemma 4 tóm tắt (Demo)
-    summarizer = ReviewSummarizer(gemini_key="INVALID_KEY_TO_FORCE_GEMMA", gemma_key="gemma4-openclaw-2026")
+    # Tải API key từ môi trường thay vì cố tình làm lỗi
+    gemini_key = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
+    summarizer = ReviewSummarizer(gemini_key=gemini_key, gemma_key="gemma4-openclaw-2026")
     print("[INFO] Da nap thanh cong mo hinh AI va Gemini Summarizer!")
     yield
     ai_station = None
@@ -66,6 +67,7 @@ app.add_middleware(
 #Quy định dữ liệu nhập vào (url) phải là một chuỗi ký tự
 class AnalyzeRequest(BaseModel):
     url: str
+    reviews_data: list = None
 
 #Endpoint API chính nhận dữ liệu URL và trả về kết quả phân tích
 @app.post("/api/analyze")
@@ -74,8 +76,13 @@ def analyze_product(request: AnalyzeRequest):
     if not url:
         raise HTTPException(status_code=400, detail="URL is required")
 
-    # 1. Lấy dữ liệu bình luận (từ Scraper.py)
-    comments = get_reviews_from_url(url)
+    # 1. Lấy dữ liệu bình luận (từ File upload hoặc từ Scraper)
+    if request.reviews_data:
+        # Nếu có data từ extension gửi lên
+        comments = [str(r.get("comment", "")).strip() for r in request.reviews_data if len(str(r.get("comment", "")).strip()) > 5]
+    else:
+        # Nếu không, thử tự crawl (sẽ dùng Mock data nếu lỗi)
+        comments = get_reviews_from_url(url)
     
     if not comments:
         raise HTTPException(status_code=404, detail="Không tìm thấy bình luận nào cho sản phẩm này.")
@@ -87,6 +94,18 @@ def analyze_product(request: AnalyzeRequest):
             "name": "Sản phẩm Demo",
             "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1000&auto=format&fit=crop" # Box/Shopping image fallback
         }
+        
+        # Thử lấy từ dữ liệu file JSON (Extension)
+        if request.reviews_data:
+            for r in request.reviews_data:
+                if r.get("product_items") and isinstance(r["product_items"], list) and len(r["product_items"]) > 0:
+                    item = r["product_items"][0]
+                    if item.get("name"):
+                        info["name"] = item.get("name")
+                    if item.get("image"):
+                        info["image"] = "https://down-vn.img.susercontent.com/file/" + item.get("image")
+                    return info # Tìm thấy thì trả về ngay lập tức
+
         try:
             if "tiki.vn" in product_url:
                 match = re.search(r'-p(\d+)\.html', product_url)
@@ -210,13 +229,17 @@ def analyze_product(request: AnalyzeRequest):
             
         return False
 
-    # Chỉ lấy đủ 100 bình luận KHÔNG phải rác
+    # Chỉ lấy đủ MAX_COMMENTS bình luận KHÔNG phải rác
+    import random
     valid_comments = []
     for cmt in comments:
         if not is_spam(cmt):
             valid_comments.append(cmt)
-        if len(valid_comments) == 100:
-            break
+            
+    MAX_COMMENTS = 250 # Giới hạn số lượng để PhoBERT chạy không bị quá tải
+    if len(valid_comments) > MAX_COMMENTS:
+        random.seed(42) # Để kết quả ổn định khi f5
+        valid_comments = random.sample(valid_comments, MAX_COMMENTS)
             
     result_data["overview"]["total_analyzed_comments"] = len(valid_comments)
 

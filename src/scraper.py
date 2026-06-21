@@ -1,29 +1,17 @@
 import csv
 import os
 import time
-import re
 import random
-import os
 import re
 import pandas as pd
+import sys
 
-# Cache reviews indexed by product_id at module load
-_REVIEWS = {}
-
-def _load_reviews():
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-    for filename in ("positive_reviews.csv", "negative_reviews.csv"):
-        path = os.path.join(data_dir, filename)
-        if not os.path.exists(path):
-            continue
-        with open(path, encoding="utf-8-sig") as f:
-            for row in csv.DictReader(f):
-                pid = row.get("product_id", "").strip()
-                comment = row.get("comment", "").strip()
-                if pid and comment:
-                    _REVIEWS.setdefault(pid, []).append(comment)
-
-_load_reviews()
+# Import Realtime Crawlers
+try:
+    from src.crawler.scripts.realtime_shopee import ShopeeCrawler
+    from src.crawler.scripts.realtime_tiki import TikiCrawler
+except ImportError:
+    pass
 
 def _extract_product_id(url: str) -> str | None:
     """Extract product_id from a Shopee or Tiki URL."""
@@ -43,84 +31,55 @@ def _extract_product_id(url: str) -> str | None:
 
 def get_reviews_from_url(url: str) -> list[str]:
     """
-    Scraper tích hợp: Lấy dữ liệu bình luận thật từ file CSV dựa vào Product ID trên URL.
-    Nếu không tìm thấy hoặc URL không hợp lệ, trả về dữ liệu Mock.
+    Scraper Real-time: Thu thập bình luận trực tiếp từ API của Tiki và Shopee.
+    Dữ liệu sẽ được cào mới hoàn toàn khi người dùng nhập link.
     """
-    # 1. Tìm Product ID trong URL Tiki
-    match = re.search(r'-p(\d+)\.html', url) or re.search(r'p(\d+)\.html', url)
-    if match:
-        product_id = match.group(1)
-        try:
-            pos_path = os.path.join("data", "positive_reviews.csv")
-            neg_path = os.path.join("data", "negative_reviews.csv")
-            tiki_comments = []
-            
-            def get_longest_comments(path, prod_id, limit=150):
-                if not os.path.exists(path) or not prod_id: return []
-                df = pd.read_csv(path, dtype={'product_id': str})
-                exact_df = df[df['product_id'] == prod_id]
-                if not exact_df.empty:
-                    comments = exact_df['comment'].dropna().tolist()
-                    comments.sort(key=lambda x: len(str(x)), reverse=True)
-                    return comments[:limit]
-                return []
-                
-            tiki_comments.extend(get_longest_comments(pos_path, product_id, 150))
-            tiki_comments.extend(get_longest_comments(neg_path, product_id, 150))
-            
-            if tiki_comments:
-                time.sleep(1)
-                random.shuffle(tiki_comments)
-                return tiki_comments
-        except Exception as e:
-            print(f"Lỗi đọc dữ liệu Tiki: {e}")
-
-    # 2. Xử lý link Shopee (Lấy chính xác bình luận của sản phẩm nếu có)
-    if "shopee.vn" in url.lower():
-        # Lấy Product ID từ link Shopee (VD: i.12345.28506866571 -> 28506866571)
-        match_shopee = re.search(r'-i\.\d+\.(\d+)', url) or re.search(r'/product/\d+/(\d+)', url)
-        shopee_id = match_shopee.group(1) if match_shopee else None
-
-        # 2b. Đọc từ file CSV (chỉ lấy đúng ID, KHÔNG lấy random)
-        try:
-            pos_path = os.path.join("data", "positive_reviews.csv")
-            neg_path = os.path.join("data", "negative_reviews.csv")
-            shopee_comments = []
-            
-            # Hàm đọc và lọc comment, ưu tiên DÀI NHẤT
-            def get_longest_shopee_comments(path, prod_id, limit=150):
-                if not os.path.exists(path) or not prod_id: return []
-                df = pd.read_csv(path, dtype={'product_id': str})
-                
-                exact_df = df[df['product_id'] == prod_id]
-                if not exact_df.empty:
-                    comments = exact_df['comment'].dropna().tolist()
-                    comments.sort(key=lambda x: len(str(x)), reverse=True)
-                    return comments[:limit]
-                return []
-            
-            # Lấy 150 câu khen dài nhất + 150 câu chê dài nhất = 300 câu cân bằng
-            shopee_comments.extend(get_longest_shopee_comments(pos_path, shopee_id, 150))
-            shopee_comments.extend(get_longest_shopee_comments(neg_path, shopee_id, 150))
-                
-            if shopee_comments:
-                time.sleep(1)
-                random.shuffle(shopee_comments) # Xáo trộn khen/chê để không bị cụm
-                return shopee_comments
-        except Exception as e:
-            print(f"Lỗi đọc dữ liệu Shopee: {e}")
-
-    # 3. Dữ liệu MOCK dự phòng (nếu nhập link lạ)
-    mock_comments = [
-        "Chất vải mỏng hơn mình nghĩ, form áo thì tạm được nhưng đường chỉ may ẩu quá, nhiều chỉ thừa. Giao hàng thì siêu lâu, chờ hơn 1 tuần mới tới.",
-        "Áo đẹp tuyệt vời nha mọi người, mặc cực kỳ tôn dáng và mát mẻ. Rất đáng đồng tiền bát gạo. Đóng gói cẩn thận, shop chuẩn bị hàng nhanh, 10 điểm!",
-        "Chất lượng bình thường, không có gì đặc sắc. Tầm giá 100k thì mình cũng không kỳ vọng nhiều. Mặc tạm đi chơi thì được.",
-        "Giao sai màu rồi shop ơi, mình đặt màu đen mà giao màu xanh. Đã nhắn tin xin đổi trả mà shop seen không rep, dịch vụ tệ quá!",
-        "Tuyệt vời! Sản phẩm vượt xa mong đợi, chất liệu xịn xò mặc rất thoải mái. Shipper thân thiện, giao hàng thần tốc chỉ trong 1 ngày.",
-        "Thất vọng! Áo bị rách một lỗ nhỏ ở nách, nhắn tin shop thì thái độ lồi lõm không chịu đổi. Mọi người né shop này ra nhé, làm ăn chộp giật.",
-        "Quá tệ! Vải nilon mặc bí vô cùng, mồ hôi không thoát được. Được cái giá rẻ với giao nhanh thôi chứ chất lượng thì không ngửi nổi."
-    ]
+    comments = []
     
-    time.sleep(random.uniform(0.5, 1.5))
-    random.shuffle(mock_comments)
-    return mock_comments[:20]
+    # 1. Xử lý link TIKI
+    if "tiki.vn" in url.lower():
+        try:
+            crawler = TikiCrawler()
+            # Giới hạn lấy 100-200 bình luận để API không bị timeout
+            result = crawler.crawl_all_reviews(url, max_reviews=150)
+            if 'error' not in result and 'reviews' in result:
+                for rv in result['reviews']:
+                    c = str(rv.get('comment', '')).strip()
+                    # Chỉ lấy comment có nội dung thực sự (tránh review chỉ có icon/ảnh)
+                    if len(c) > 5:
+                        comments.append(c)
+        except Exception as e:
+            print(f"[Scraper] Lỗi đọc dữ liệu Tiki real-time: {e}")
+
+    # 2. Xử lý link SHOPEE
+    elif "shopee.vn" in url.lower():
+        try:
+            crawler = ShopeeCrawler()
+            _, reviews = crawler.crawl_from_url(url, max_reviews=150)
+            if reviews:
+                for rv in reviews:
+                    c = str(rv.get('comment', '')).strip()
+                    if len(c) > 5:
+                        comments.append(c)
+        except Exception as e:
+            print(f"[Scraper] Lỗi đọc dữ liệu Shopee real-time: {e}")
+
+    # 3. Dữ liệu MOCK dự phòng (nếu nhập link lạ hoặc Crawler bị block tạm thời)
+    if not comments:
+        print("[Scraper] Cảnh báo: Không crawl được dữ liệu, đang sử dụng Mock Data.")
+        mock_comments = [
+            "Chất vải mỏng hơn mình nghĩ, form áo thì tạm được nhưng đường chỉ may ẩu quá, nhiều chỉ thừa. Giao hàng thì siêu lâu, chờ hơn 1 tuần mới tới.",
+            "Áo đẹp tuyệt vời nha mọi người, mặc cực kỳ tôn dáng và mát mẻ. Rất đáng đồng tiền bát gạo. Đóng gói cẩn thận, shop chuẩn bị hàng nhanh, 10 điểm!",
+            "Chất lượng bình thường, không có gì đặc sắc. Tầm giá 100k thì mình cũng không kỳ vọng nhiều. Mặc tạm đi chơi thì được.",
+            "Giao sai màu rồi shop ơi, mình đặt màu đen mà giao màu xanh. Đã nhắn tin xin đổi trả mà shop seen không rep, dịch vụ tệ quá!",
+            "Tuyệt vời! Sản phẩm vượt xa mong đợi, chất liệu xịn xò mặc rất thoải mái. Shipper thân thiện, giao hàng thần tốc chỉ trong 1 ngày.",
+            "Thất vọng! Áo bị rách một lỗ nhỏ ở nách, nhắn tin shop thì thái độ lồi lõm không chịu đổi. Mọi người né shop này ra nhé, làm ăn chộp giật.",
+            "Quá tệ! Vải nilon mặc bí vô cùng, mồ hôi không thoát được. Được cái giá rẻ với giao nhanh thôi chứ chất lượng thì không ngửi nổi."
+        ]
+        time.sleep(random.uniform(0.5, 1.5))
+        random.shuffle(mock_comments)
+        return mock_comments[:20]
+    
+    # Shuffle nhẹ để phân bố ngẫu nhiên (nếu muốn) và trả về
+    random.shuffle(comments)
+    return comments
