@@ -5,7 +5,31 @@ import { Zap, Target, ShieldCheck, Link as LinkIcon, Search } from 'lucide-react
 const Home = () => {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [reviewsData, setReviewsData] = useState(null);
   const navigate = useNavigate();
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        if (json.reviews) {
+          setReviewsData(json.reviews);
+          if (!url && json.shopid && json.itemid) {
+             setUrl(`https://shopee.vn/product/${json.shopid}/${json.itemid}`);
+          }
+          alert(`Đã tải thành công ${json.reviews.length} bình luận từ Extension! Nhấn Phân tích để tiếp tục.`);
+        } else {
+          alert("File JSON không đúng định dạng của Extension.");
+        }
+      } catch (err) {
+        alert("Lỗi đọc file JSON.");
+      }
+    };
+    reader.readAsText(file);
+  };
 
   const handleAnalyze = (e) => {
     e.preventDefault();
@@ -13,7 +37,7 @@ const Home = () => {
 
     setIsLoading(true);
     setTimeout(() => {
-      navigate(`/analyze?url=${encodeURIComponent(url)}`);
+      navigate(`/analyze?url=${encodeURIComponent(url)}`, { state: { reviews_data: reviewsData } });
     }, 800);
   };
 
@@ -75,6 +99,16 @@ const Home = () => {
               )}
             </button>
           </form>
+          
+          {/* File Upload Option */}
+          <div className="mt-4 flex justify-center text-sm text-text-secondary animate-fade-in-up-delay-2">
+            <span>Hoặc</span>
+            <label className="text-primary-600 font-medium cursor-pointer ml-1 hover:underline">
+              tải lên file JSON từ Extension
+              <input type="file" accept=".json" className="hidden" onChange={handleFileUpload} />
+            </label>
+            {reviewsData && <span className="ml-2 text-positive">✓ Đã sẵn sàng {reviewsData.length} bình luận</span>}
+          </div>
         </div>
 
         {/* Feature Cards */}

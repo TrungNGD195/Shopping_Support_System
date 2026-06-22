@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import {
   ArrowLeft, MessageSquare, BarChart2, ShieldCheck,
@@ -11,6 +11,8 @@ const Dashboard = () => {
   const [searchParams] = useSearchParams();
   const url = searchParams.get('url');
   const navigate = useNavigate();
+  const location = useLocation();
+  const reviewsData = location.state?.reviews_data;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,7 +28,10 @@ const Dashboard = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axios.post('http://localhost:8000/api/analyze', { url });
+        const payload = { url };
+        if (reviewsData) payload.reviews_data = reviewsData;
+        
+        const response = await axios.post('http://localhost:8000/api/analyze', payload);
         setData(response.data);
       } catch (err) {
         setError('Có lỗi xảy ra khi kết nối với AI Server. Vui lòng thử lại sau.');
