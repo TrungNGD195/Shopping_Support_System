@@ -17,12 +17,10 @@ def label_dataset_with_gemma(input_csv="data/cleaned_negative_reviews.csv", outp
         api_key="gemma4-openclaw-2026"
     )
     
-    # Đọc data cần gán nhãn
     df = pd.read_csv(input_csv)
     if limit is not None:
         df = df.head(limit).copy()
     
-    # Khởi tạo các cột mới
     for aspect in ["Quality", "Price", "Delivery", "Service"]:
         df[aspect] = -1
 
@@ -52,10 +50,8 @@ Bình luận cần phân tích:
     
     print(f"Bắt đầu gán nhãn cho {len(df)} dòng dữ liệu bằng Gemma 4 (Chạy song song 1000 luồng)...")
     
-    # Chuẩn bị danh sách index để chạy
     indices = df.index.tolist()
     
-    # Lock để in tiến độ không bị chồng chéo
     print_lock = Lock()
     success_count = 0
     
@@ -69,7 +65,7 @@ Bình luận cần phân tích:
             
         prompt = prompt_template.format(comment=comment)
         
-        for attempt in range(3): # Thử lại tối đa 3 lần nếu lỗi
+        for attempt in range(3):
             try:
                 response = client.chat.completions.create(
                     model="gemma-4",
@@ -83,7 +79,6 @@ Bình luận cần phân tích:
                 
                 text = response.choices[0].message.content.strip()
                 
-                # Bóc tách chính xác phần JSON nằm giữa { và }
                 start_idx = text.find('{')
                 end_idx = text.rfind('}')
                 
@@ -118,7 +113,6 @@ Bình luận cần phân tích:
                 
         return index, -1, -1, -1, -1
 
-    # Chạy song song với 1000 threads
     with ThreadPoolExecutor(max_workers=1000) as executor:
         futures = {executor.submit(process_row, idx): idx for idx in indices}
         
@@ -129,19 +123,16 @@ Bình luận cần phân tích:
             df.at[idx, 'Delivery'] = d
             df.at[idx, 'Service'] = s
             
-    # Lưu file
     df.to_csv(output_csv, index=False)
     print(f"\\nHOÀN TẤT! Đã lưu kết quả gán nhãn chuẩn vào {output_csv}")
 
 if __name__ == "__main__":
-    # Gán nhãn cho toàn bộ file bình luận tiêu cực
     label_dataset_with_gemma(
         input_csv="../../data/cleaned_negative_reviews.csv", 
         output_csv="../../data/gemma_labeled_negative.csv", 
         limit=None
     )
     
-    # Gán nhãn cho toàn bộ file bình luận tích cực
     label_dataset_with_gemma(
         input_csv="../../data/cleaned_positive_reviews.csv", 
         output_csv="../../data/gemma_labeled_positive.csv", 

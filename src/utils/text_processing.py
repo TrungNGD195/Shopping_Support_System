@@ -17,7 +17,6 @@ TEENCODE_DICT = {
     "vler": "rất", "lun": "luôn", "lunnn": "luôn"
 }
 
-# 2. Danh sách Stopwords
 STOPWORDS = set([
     "thì", "là", "mà", "rằng", "thế", "này", "kia", "nọ", "vậy", 
     "nhé", "nha", "ạ", "ơi", "hả", "chứ", "đi"
@@ -40,25 +39,19 @@ def clean_text(text):
     words = text.split()
     cleaned_words = []
     for word in words:
-        # Dịch teencode trước
         word = TEENCODE_DICT.get(word, word)
-        # Nếu từ đó KHÔNG nằm trong danh sách Stopwords thì mới lấy
         if word not in STOPWORDS:
             cleaned_words.append(word)
             
     text = " ".join(cleaned_words)
     
-    # Bước 6: Gom nhiều khoảng trắng thành 1
     text = re.sub(r'\s+', ' ', text).strip()
     
-    # Bước 7: Tách từ tiếng Việt bằng Underthesea (Ghép từ bằng dấu _)
     text = word_tokenize(text, format="text")
     
     return text
 
-# DÒNG CHẠY THỬ NGHIỆM
 if __name__ == "__main__":
-    # Câu comment chứa đầy đủ: teencode, chữ lặp, từ vô nghĩa (này, nha, ơi, thì), email, link, icon
     test_comment = "Áo này đẹppppppp lắm nhaaaaa sóp ơi 😂, giá rẻ vler lunnnn mà giao hàng thì quá nhanhhhh!!! liên hệ nguyen.a@gmail.com hoặc http://linkspam.com nhé"
     
     print("--- TRƯỚC KHI LỌC ---")

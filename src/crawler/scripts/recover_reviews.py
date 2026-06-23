@@ -13,7 +13,6 @@ BASE_URL = "https://continuous-scraper.common.chartedapi.com/scraping-tasks/shop
 OUTPUT_DIR = "data/reviews"
 
 def fetch_recent_tasks():
-    # Fetch tasks from the last hour
     min_time = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     
     tasks = []
@@ -45,7 +44,6 @@ def fetch_recent_tasks():
         tasks.extend(items)
         offset += limit
         
-        # Stop fetching if we're not receiving a full set
         if len(items) < limit:
             break
             
@@ -107,7 +105,6 @@ def process_tasks(tasks):
         except Exception as e:
             print(f"Error parsing task {task.get('uuid')}: {e}")
 
-    # Remove duplicates from each list
     for key in reviews_by_product:
         unique_reviews = {r["cmtid"]: r for r in reviews_by_product[key]}.values()
         reviews_by_product[key] = list(unique_reviews)

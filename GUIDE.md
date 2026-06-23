@@ -1,6 +1,5 @@
-    Đúng rồi, vẫn y xì như cũ! Gemma 4 MoE đã được khôi phục về config mạnh nhất. Đây là guide đầy đủ:
 
-    ---
+---
 
     ## 🔌 Thông số kết nối Gemma 4 MoE
 

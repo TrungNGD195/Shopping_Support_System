@@ -5,18 +5,14 @@ import sys
 import io
 from dotenv import load_dotenv
 
-# Project root (2 levels up from this file)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Load .env from ai_core/ directory
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
 
-# Import ABSAPredictor from src/inference.py (not ai_core/inference.py)
 from inference import ABSAPredictor
 
-# Import summarizer from ai_core/ (add its path after to avoid shadowing)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from summarizer import ReviewSummarizer
 
@@ -25,7 +21,6 @@ def run_full_pipeline():
     print("   BẮT ĐẦU CHẠY PIPELINE AI ĐẦY ĐỦ")
     print("=" * 60)
 
-    # 1. READ DATA
     print("\n[Bước 1] Nạp dữ liệu từ thư mục 'data'...")
     try:
         def read_csv_safe(path):
@@ -44,7 +39,6 @@ def run_full_pipeline():
         print(f"Lỗi đọc file: {e}")
         return
 
-    # 2. LOAD MODEL & PREDICT
     print("\n[Bước 2] Khởi động PhoBERT để chấm điểm...")
     print("  Model: models/phobert-absa-final (aspect+comment pair)")
 
@@ -62,7 +56,6 @@ def run_full_pipeline():
             print(f"  ... đã quét {i}/{len(sample_comments)}")
         demo_results.append(predictor.predict_single_comment(c))
 
-    # 3. AGGREGATE
     aspects = ['Quality', 'Price', 'Delivery', 'Service']
     khen_dict = {asp: [] for asp in aspects}
     che_dict = {asp: [] for asp in aspects}
@@ -75,7 +68,6 @@ def run_full_pipeline():
             elif label == 0:
                 che_dict[asp].append(result["original_text"])
 
-    # 4. SUMMARIZE WITH GEMINI
     print("\n[Bước 3] Gọi Gemini để viết tóm tắt...")
     API_KEY = os.environ.get("GEMINI_API_KEY")
     if not API_KEY:
@@ -93,7 +85,6 @@ def run_full_pipeline():
     else:
         has_summarizer = False
 
-    # 5. DISPLAY RESULTS
     print("\n" + "=" * 80)
     print("KẾT QUẢ PHÂN TÍCH ĐA KHÍA CẠNH:")
     print("=" * 80)

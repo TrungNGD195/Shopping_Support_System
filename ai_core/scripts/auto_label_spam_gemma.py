@@ -21,7 +21,6 @@ def label_spam_with_gemma(input_csv="../../data/spam_dataset.csv", output_csv=".
     if limit is not None:
         df = df.head(limit).copy()
     
-    # Thêm cột kết quả của Gemma
     if 'gemma_is_spam' not in df.columns:
         df['gemma_is_spam'] = -1
 
@@ -118,8 +117,6 @@ Bình luận:
     print(f"Kết quả lưu tại: {output_csv}")
 
 if __name__ == "__main__":
-    # Đọc file dataset đã tạo từ script cũ (gồm 26k review cả thật và spam)
-    # Lưu ra file mới là gemma_labeled_spam.csv
     label_spam_with_gemma(
         input_csv="../../data/spam_dataset.csv", 
         output_csv="../../data/gemma_labeled_spam.csv", 

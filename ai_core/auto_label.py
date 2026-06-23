@@ -3,10 +3,8 @@ import re
 import os
 import sys
 
-# Đặt mã hóa UTF-8 cho console để tránh lỗi in chữ tiếng Việt trên Windows
 sys.stdout.reconfigure(encoding='utf-8')
 
-# Từ khóa dạng đã được tokenize (nối bằng dấu _)
 KEYWORDS = {
     'Quality': {
         'positive': ['tốt', 'tuyệt_vời', 'tuyệt', 'đẹp', 'chắc_chắn', 'xịn', 'ok', 'ổn', 'ưng_ý', 'hài_lòng', 'đúng_mô_tả', 'đúng_hình', 'chất_lượng', 'chính_hãng', 'chuẩn', 'bền', 'thơm', 'mịn', 'đỉnh', 'hay', 'ngon', 'xuất_sắc', 'hoàn_hảo', 'hữu_ích', 'êm', 'mượt', 'nhạy', 'rõ', 'nét', 'sang', 'xịn_xò', 'xịn_sò', 'ưng', 'ưng_bụng', 'đỉnh_của_chóp', 'đáng_mua'],
@@ -26,7 +24,6 @@ KEYWORDS = {
     }
 }
 
-# Negative prefix to flip sentiment if they appear right before a positive keyword
 NEGATIONS = ['không', 'chả', 'chưa', 'đếch', 'kém', 'ko', 'k']
 
 def assign_label(text, aspect):
@@ -43,13 +40,11 @@ def assign_label(text, aspect):
     neg_keywords = KEYWORDS[aspect]['negative']
     
     for i, word in enumerate(words):
-        # Tăng khoảng cách cửa sổ bắt từ phủ định lên 5 từ
         has_negation = False
         start_idx = max(0, i - 5)
         if any(w in NEGATIONS for w in words[start_idx:i]):
             has_negation = True
             
-        # Loại trừ chữ "hay" khi nó đóng vai trò là "hoặc" (thường đứng giữa 2 tính từ xấu)
         if word == 'hay' and (i > 0 and i < len(words)-1):
             if any(bad in words[i-1] for bad in neg_keywords) or any(bad in words[i+1] for bad in neg_keywords):
                 continue
@@ -67,14 +62,12 @@ def assign_label(text, aspect):
                 pos_score += 1
 
     if pos_score > 0 and neg_score == 0:
-        return 2  # Tích cực
+        return 2 
     elif neg_score > 0 and pos_score == 0:
-        return 0  # Tiêu cực
+        return 0 
     elif pos_score > 0 and neg_score > 0:
-        # Xử lý Tie (Hòa): Nếu khen chê bằng nhau, ưu tiên Khen (vì đa số là review 5 sao)
         return 2 if pos_score >= neg_score else 0
     elif pos_score == 0 and neg_score == 0:
-        # Nếu có từ khóa liên quan đến aspect nhưng không rõ khen chê (trung tính)
         aspect_indicators = {
             'Quality': ['chất_lượng', 'sản_phẩm', 'hàng', 'màu', 'size'],
             'Price': ['giá', 'tiền', 'giá_cả', 'giá_thành'],
@@ -82,8 +75,8 @@ def assign_label(text, aspect):
             'Service': ['shop', 'chủ_shop', 'nhân_viên', 'tư_vấn', 'trả_lời']
         }
         if any(ind in text for ind in aspect_indicators[aspect]):
-            return 1 # Bình thường / Trung tính
-        return -1 # Không nhắc tới
+            return 1
+        return -1
 
 def main():
     data_dir = r"d:\Shopping_Support_System\data"
@@ -95,15 +88,12 @@ def main():
             print(f"Đang gán nhãn tự động cho file: {file}...")
             df = pd.read_csv(file_path)
             
-            # Gán nhãn cho 4 khía cạnh
             for aspect in ['Quality', 'Price', 'Delivery', 'Service']:
                 df[aspect] = df['cleaned_comment'].apply(lambda x: assign_label(x, aspect))
             
-            # Lưu đè ra file cũ (bỏ tiền tố auto_labeled_ bị lặp)
             output_file = os.path.join(data_dir, file)
             df.to_csv(output_file, index=False, encoding='utf-8-sig')
             
-            # Thống kê nhanh
             print(f"Đã lưu: {output_file}")
             print("Thống kê nhãn (2: Khen, 1: Bình thường, 0: Chê, -1: Không nhắc):")
             for aspect in ['Quality', 'Price', 'Delivery', 'Service']:

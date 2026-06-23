@@ -64,7 +64,6 @@ def main():
     for k, v in categories_from_standard.items():
         print(f"Loaded from {k}.json: {len(v)}")
         
-    # Read the CSV
     with open(CSV_PATH, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         fields = reader.fieldnames
@@ -81,7 +80,6 @@ def main():
         cat = row["category"]
         new_url = None
         
-        # Determine source of product URL
         if cat in categories_from_standard:
             pool = categories_from_standard[cat]
             if len(pool) > 0:
@@ -95,7 +93,6 @@ def main():
             row["product_url"] = new_url
             updated_count += 1
             
-    # Write back to CSV
     with open(CSV_PATH, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()

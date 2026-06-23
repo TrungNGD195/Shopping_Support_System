@@ -7,16 +7,9 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 
 class ReviewSummarizer:
-    def __init__(self, gemini_key=None, gemma_key=None):
-        self.gemini_key = gemini_key or os.environ.get("GEMINI_API_KEY")
+    def __init__(self, gemma_key=None):
         self.gemma_key = gemma_key or os.environ.get("GEMMA_API_KEY", "gemma4-openclaw-2026")
-        
-        # Khởi tạo Gemini Client (Lựa chọn 1)
-        self.gemini_client = None
-        if self.gemini_key and self.gemini_key != "YOUR_GEMINI_API_KEY_HERE":
-            self.gemini_client = genai.Client(api_key=self.gemini_key)
             
-        # Khởi tạo Gemma Client (Lựa chọn 2 - Dự phòng)
         self.gemma_client = OpenAI(
             base_url="http://171.226.10.121:8000/llm/v1",
             api_key=self.gemma_key
@@ -36,24 +29,29 @@ class ReviewSummarizer:
             }
 
         prompt = f"""
-Bạn là chuyên gia phân tích đánh giá sản phẩm.
-Tóm tắt ngắn gọn Ưu/Nhược điểm về khía cạnh '{aspect}' từ các bình luận dưới đây.
-Đồng thời trích xuất các lời khen và lời chê nổi bật nhất (tối đa 5 câu mỗi loại, có bao nhiêu trích bấy nhiêu, TUYỆT ĐỐI KHÔNG BỊA THÊM HOẶC CẮT NHỎ CÂU). Hãy giữ nguyên văn câu dài để đảm bảo ngữ cảnh.
-LƯU Ý QUAN TRỌNG: 
-1. BỎ HOÀN TOÀN các bình luận rác, xin xu (ví dụ: "giao hàng nhanh"... nhưng không liên quan).
-2. LỌC CHẶT CHẼ THEO KHÍA CẠNH: Nếu khía cạnh đang xét là '{aspect}', nhưng bình luận hoàn toàn nói về thứ khác (ví dụ xét "Giao hàng" nhưng bình luận lại nói về "Nấu cơm lâu chín", "Nhựa mỏng"), BẮT BUỘC PHẢI LOẠI BỎ bình luận đó khỏi danh sách highlights. Chỉ giữ lại những câu THỰC SỰ nhắc tới '{aspect}'.
+Bạn là chuyên gia phân tích đánh giá sản phẩm. Nhiệm vụ của bạn là kiểm tra, lọc và tóm tắt các đánh giá.
 
-Bình luận Tích cực:
+CHÚ Ý ĐẶC BIỆT: Khía cạnh đang xét là: '{aspect}'.
+
+QUY TẮC LỌC Ý KIẾN TIÊU BIỂU (TỐI QUAN TRỌNG):
+Bạn nhận được một danh sách các bình luận bên dưới. Có thể hệ thống máy học trước đó đã phân loại NHẦM một số bình luận vào khía cạnh '{aspect}'. 
+Nhiệm vụ của bạn là LỌC VÀ LOẠI BỎ hoàn toàn những bình luận bị phân loại nhầm.
+- Nếu bình luận là "Bình quá đẹp, hơi nhỏ...", "Giữ nhiệt tốt..." -> KHÔNG PHẢI LÀ GIAO HÀNG. Bỏ ngay!
+- Nếu bình luận là "Uống hơi khó...", "Màu sắc không tươi..." -> KHÔNG PHẢI LÀ GIAO HÀNG. Bỏ ngay!
+- CHỈ GIỮ LẠI những câu thực sự nhắc đến '{aspect}'. Ví dụ nếu là Giao hàng thì phải có chữ "giao", "shipper", "nhanh", "chậm", "hộp", "đóng gói", v.v...
+- Nếu sau khi lọc không còn câu nào hợp lệ, hãy trả về mảng rỗng []. TUYỆT ĐỐI KHÔNG lấy đại bình luận sai khía cạnh đưa vào!
+
+Bình luận Tích cực (Khen):
 {positive_comments[:20]}
 
-Bình luận Tiêu cực:
+Bình luận Tiêu cực (Chê):
 {negative_comments[:20]}
 
 Trả về kết quả bằng ĐÚNG ĐỊNH DẠNG JSON sau, không giải thích gì thêm:
 {{
-  "summary": "Đánh giá chung...",
-  "positive_highlights": ["câu khen 1", "câu khen 2"],
-  "negative_highlights": ["câu chê 1", "câu chê 2", "câu chê 3"]
+  "summary": "Tóm tắt ngắn gọn Ưu/Nhược điểm (nếu có) về {aspect}...",
+  "positive_highlights": ["câu khen chuẩn 1", "câu khen chuẩn 2"],
+  "negative_highlights": ["câu chê chuẩn 1"]
 }}
 """
         fallback_result = {
@@ -62,29 +60,6 @@ Trả về kết quả bằng ĐÚNG ĐỊNH DẠNG JSON sau, không giải thí
             "negative_highlights": negative_comments[:5]
         }
         
-        # --- LỰA CHỌN 1: GEMINI API ---
-        if self.gemini_client:
-            try:
-                response = self.gemini_client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=prompt
-                )
-                text = response.text.strip()
-                if text.startswith("```json"):
-                    text = text[7:-3].strip()
-                elif text.startswith("```"):
-                    text = text[3:-3].strip()
-                
-                start_idx = text.find('{')
-                end_idx = text.rfind('}')
-                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-                    return json.loads(text[start_idx:end_idx+1])
-            except Exception as e:
-                print(f"Gemini API Error (Chuyển sang dùng Gemma): {e}")
-        else:
-            print("Không tìm thấy Gemini Key, tự động chuyển sang Gemma...")
-
-        # --- LỰA CHỌN 2: GEMMA 4 MoE (DỰ PHÒNG) ---
         try:
             response = self.gemma_client.chat.completions.create(
                 model="gemma-4",
@@ -97,7 +72,6 @@ Trả về kết quả bằng ĐÚNG ĐỊNH DẠNG JSON sau, không giải thí
             )
             text = response.choices[0].message.content.strip()
             
-            # Cắt JSON chuẩn xác để tránh lỗi Extra data
             start_idx = text.find('{')
             end_idx = text.rfind('}')
             if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
@@ -110,15 +84,9 @@ Trả về kết quả bằng ĐÚNG ĐỊNH DẠNG JSON sau, không giải thí
             return fallback_result
 
 if __name__ == "__main__":
-    API_KEY = os.environ.get("GEMINI_API_KEY")
-    if not API_KEY:
-        print("Chưa đặt biến môi trường GEMINI_API_KEY. Thoát.")
-        exit(1)
-
     try:
-        summarizer = ReviewSummarizer(api_key=API_KEY)
+        summarizer = ReviewSummarizer()
         
-        # Giả lập dữ liệu mà PhoBERT vừa bóc tách ra được
         khia_canh_dang_xet = "Chất lượng sản phẩm"
         nhung_cau_khen = [
             "Điện thoại xài rất mượt, màn hình đẹp.",
@@ -133,7 +101,6 @@ if __name__ == "__main__":
         
         print(f"Đang nhờ Gemini đọc và tóm tắt khía cạnh: {khia_canh_dang_xet}...\n")
         
-        # Gọi hàm tóm tắt
         ket_qua = summarizer.summarize(khia_canh_dang_xet, nhung_cau_khen, nhung_cau_che)
         
         print("ĐOẠN TÓM TẮT DÀNH CHO NGƯỜI DÙNG:")

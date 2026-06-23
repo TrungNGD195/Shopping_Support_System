@@ -3,18 +3,15 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import transformers
 import os
 
-# Tắt cảnh báo rác (ví dụ: overflowing tokens) của transformers để terminal sạch sẽ
 transformers.logging.set_verbosity_error()
 class ABSAPredictor:
     def __init__(self, model_path):
-        # Tự động chọn GPU nếu có, nếu không thì dùng CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Loading model from: {model_path} to {self.device}...")
         
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path).to(self.device)
         
-        # 4 Khía cạnh cần đánh giá
         self.aspects = {
             'Quality': 'chất lượng',
             'Price': 'giá cả',
@@ -22,8 +19,6 @@ class ABSAPredictor:
             'Service': 'dịch vụ'
         }
         
-        # Map số sang chữ cho dễ đọc theo đúng colab_train_absa.ipynb
-        # {-1: 3, 0: 0, 1: 1, 2: 2} => 0=Chê, 1=Bình thường, 2=Khen, 3=Không nhắc tới
         self.label_map = {
             0: "Tiêu cực (Chê)",
             1: "Bình thường",
@@ -37,7 +32,6 @@ class ABSAPredictor:
         aspect_texts = [self.aspects[k] for k in aspect_keys]
         comments_repeated = [comment] * len(aspect_texts)
         
-        # Batch 4 khía cạnh vào cùng 1 lần suy luận (Tăng tốc gấp 4 lần)
         inputs = self.tokenizer(
             aspect_texts, 
             comments_repeated, 
@@ -57,12 +51,52 @@ class ABSAPredictor:
                 
         return results
 
-class SpamPredictor:
-    def __init__(self, model_path="models/phobert-absa-final"):
-        # Chuyển về đường dẫn mô hình cũ (phobert-absa-final)
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        model_path = os.path.join(base_dir, "models", "phobert-absa-final")
+    def predict_batch(self, comments, batch_size=64):
+        """Dự đoán cả một danh sách comments cùng lúc (Batch Inference) để tăng tốc 5-10 lần"""
+        if not comments: return []
         
+        aspect_keys = list(self.aspects.keys())
+        aspect_texts = [self.aspects[k] for k in aspect_keys]
+        
+        all_aspects = []
+        all_comments = []
+        for cmt in comments:
+            all_aspects.extend(aspect_texts)
+            all_comments.extend([cmt] * len(aspect_texts))
+                
+        all_predicted_classes = []
+        
+        for i in range(0, len(all_comments), batch_size):
+            batch_aspects = all_aspects[i:i+batch_size]
+            batch_comments = all_comments[i:i+batch_size]
+            
+            inputs = self.tokenizer(
+                batch_aspects, 
+                batch_comments, 
+                padding=True,
+                truncation=True, 
+                max_length=128, 
+                return_tensors="pt"
+            ).to(self.device)
+            
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                preds = torch.argmax(outputs.logits, dim=-1).tolist()
+                all_predicted_classes.extend(preds)
+                
+        results = []
+        idx = 0
+        for _ in comments:
+            res = {}
+            for aspect_key in aspect_keys:
+                res[aspect_key] = self.label_map[all_predicted_classes[idx]]
+                idx += 1
+            results.append(res)
+            
+        return results
+
+class SpamPredictor:
+    def __init__(self, model_path="models/phobert_spam"):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"Đang tải mô hình Spam Filter từ: {model_path} lên {self.device}...")
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -81,21 +115,17 @@ class SpamPredictor:
             outputs = self.model(**inputs)
             predicted_class = torch.argmax(outputs.logits, dim=-1).item()
             
-        # Trong data train: 0 là Spam, 1 là Hợp lệ. Vì vậy trả về True nếu là Spam (0)
         return predicted_class == 0
 
 if __name__ == "__main__":
-    # Đường dẫn cố định tới thư mục giải nén model
     model_dir = r"d:\Shopping_Support_System\models\phobert-absa-final"
     
     if not os.path.exists(model_dir):
         print(f"LỖI: Không tìm thấy thư mục mô hình tại: {model_dir}")
         print("Vui lòng tạo thư mục 'models' trong project và giải nén file zip vào đó!")
     else:
-        # Khởi tạo mô hình
         predictor = ABSAPredictor(model_dir)
         
-        # Danh sách nhiều câu bình luận Test thử
         test_comments = [
             "Điện thoại xài rất mượt, màn hình đẹp nhưng shop đóng gói sơ sài hộp bị móp méo, nhắn tin không thèm trả lời.",
             "Giá thì quá đắt so với chất lượng, xài được 2 ngày đã hỏng. Giao hàng rùa bò.",

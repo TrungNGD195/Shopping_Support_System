@@ -6,7 +6,6 @@ import os
 import uvicorn
 from contextlib import asynccontextmanager
 
-# Đảm bảo có thể import module từ ai_core và src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
@@ -14,7 +13,6 @@ from ai_core.inference import ABSAPredictor, SpamPredictor
 from ai_core.summarizer import ReviewSummarizer
 from src.scraper import get_reviews_from_url
 
-# Import Gemini summarizer (optional — only used if API key is configured)
 summarizer = None
 try:
     _ai_core_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ai_core")
@@ -24,7 +22,6 @@ try:
 except ImportError:
     ReviewSummarizer = None
 
-# Khởi tạo mô hình AI (Load 1 lần duy nhất khi server start)
 ai_station = None
 spam_station = None
 summarizer = None
@@ -44,10 +41,9 @@ async def lifespan(app: FastAPI):
         
     api_key = "AIzaSyBjaku1UOU39XLS2IhIJolUSEtCcfFGYo8"
     
-    # Tải API key từ môi trường thay vì cố tình làm lỗi
-    gemini_key = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY_HERE")
-    summarizer = ReviewSummarizer(gemini_key=gemini_key, gemma_key="gemma4-openclaw-2026")
-    print("[INFO] Da nap thanh cong mo hinh AI va Gemini Summarizer!")
+    gemma_key = "gemma4-openclaw-2026"
+    summarizer = ReviewSummarizer(gemma_key=gemma_key)
+    print("[INFO] Da nap thanh cong mo hinh AI va Gemma Summarizer!")
     yield
     ai_station = None
     spam_station = None
@@ -55,7 +51,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Shopping Support System API", lifespan=lifespan)
 
-# Cấu hình CORS để cho phép React Web App gọi API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -64,38 +59,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#Quy định dữ liệu nhập vào (url) phải là một chuỗi ký tự
 class AnalyzeRequest(BaseModel):
     url: str
     reviews_data: list = None
 
-#Endpoint API chính nhận dữ liệu URL và trả về kết quả phân tích
 @app.post("/api/analyze")
 def analyze_product(request: AnalyzeRequest):
     url = request.url
     if not url:
         raise HTTPException(status_code=400, detail="URL is required")
 
-    # 1. Lấy dữ liệu bình luận (từ File upload hoặc từ Scraper)
     if request.reviews_data:
-        # Nếu có data từ extension gửi lên
         comments = [str(r.get("comment", "")).strip() for r in request.reviews_data if len(str(r.get("comment", "")).strip()) > 5]
     else:
-        # Nếu không, thử tự crawl (sẽ dùng Mock data nếu lỗi)
         comments = get_reviews_from_url(url)
     
     if not comments:
         raise HTTPException(status_code=404, detail="Không tìm thấy bình luận nào cho sản phẩm này.")
 
-    # Trích xuất thông tin sản phẩm từ URL (Tên và Ảnh)
     def get_product_info(product_url: str):
         import requests, re, urllib.parse
         info = {
             "name": "Sản phẩm Demo",
-            "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1000&auto=format&fit=crop" # Box/Shopping image fallback
+            "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1000&auto=format&fit=crop"
         }
         
-        # Thử lấy từ dữ liệu file JSON (Extension)
         if request.reviews_data:
             for r in request.reviews_data:
                 if r.get("product_items") and isinstance(r["product_items"], list) and len(r["product_items"]) > 0:
@@ -104,7 +92,7 @@ def analyze_product(request: AnalyzeRequest):
                         info["name"] = item.get("name")
                     if item.get("image"):
                         info["image"] = "https://down-vn.img.susercontent.com/file/" + item.get("image")
-                    return info # Tìm thấy thì trả về ngay lập tức
+                    return info
 
         try:
             if "tiki.vn" in product_url:
@@ -119,11 +107,8 @@ def analyze_product(request: AnalyzeRequest):
                 if match:
                     name = match.group(1).replace('-', ' ')
                     info["name"] = name
-                    # Rút gọn tên sản phẩm để tìm ảnh chính xác hơn và thêm keyword "shopee" để ép tìm ảnh mua sắm
                     search_name = " ".join(name.split(" ")[:8]) + " shopee"
                     
-                    # Dùng Search (DuckDuckGo) để tìm đúng ảnh sản phẩm đó trên mạng
-                    # Sử dụng DuckDuckGo vì Google Custom Search API có phí và giới hạn request, còn DDGS hoàn toàn miễn phí.
                     try:
                         from ddgs import DDGS 
                         with DDGS() as ddgs:
@@ -139,7 +124,7 @@ def analyze_product(request: AnalyzeRequest):
     result_data = {
         "product_info": get_product_info(url),
         "overview": {
-            "total_analyzed_comments": 0,  # Will be updated later
+            "total_analyzed_comments": 0, 
             "final_verdict": "Đang tính toán...",
             "total_khen": 0,
             "total_che": 0
@@ -172,88 +157,76 @@ def analyze_product(request: AnalyzeRequest):
         }
     }
 
-    # 2. Phân tích qua AI Station
-    # Hàm làm đẹp bình luận tiêu biểu (Format lại cho đẹp thay vì copy nguyên si)
     def format_highlight(cmt: str) -> str:
         import re
         c = str(cmt)
         
-        # Sửa lỗi chữ dính nhau (VD: "Màu sắc:oki,chất liệu:đẹp" -> "Màu sắc: oki, chất liệu: đẹp")
-        # Tránh tách URL (http://) hoặc giờ/số (12:30, 10,000)
         c = re.sub(r'([:,])([^\s/0-9])', r'\1 \2', c)
         
-        # Xóa khoảng trắng thừa và ký tự lặp
         c = re.sub(r'\s+', ' ', c).strip()
         c = re.sub(r'([.?!])\1+', r'\1', c)
         
-        # Viết hoa chữ cái đầu và giữ nguyên toàn bộ nội dung (không cắt bớt)
         if c:
             c = c[0].upper() + c[1:]
         return c
 
     def is_spam(text: str) -> bool:
-        # Lớp 1: Lọc Heuristic (Keyword & Cấu trúc) - Chạy trước để bắt các mẫu lộ liễu
         text_lower = str(text).lower()
         real_keywords = [
-            # Thời trang / Quần áo
             "vải", "chất", "đẹp", "xấu", "màu", "size", "form", "mặc", "quần", "áo", "chỉ", "may", "mỏng", "dày", "cứng", "mềm", "mịn", "xù", "nóng", "mát", "rộng", "chật", "ngắn", "dài",
             
-            # Đồ điện tử / Gia dụng
             "nồi", "máy", "thiết", "kế", "dùng", "sử", "dụng", "cắm", "điện", "bảo", "hành", "lỗi", "hư", "hỏng", "chạy", "êm", "ồn", "giặt", "sạch", "pin", "sạc", "màn", "âm", "thanh", "chuẩn", "khét", "nấu", "chín", "sôi", "bếp", "nướng", "quạt",
             
-            # Phụ kiện điện thoại
             "kính", "cường", "lực", "ốp", "lưng", "dán", "viền", "trầy", "xước", "cảm", "ứng", "mượt",
             
-            # Chung / Đánh giá
             "rẻ", "đắt", "giao", "shop", "gói", "tư", "vấn", "thơm", "xịn", "ok", "tốt", "ưng", "nhanh", "chậm", "mua", "test", "hàng", "tiền", "giá", "chắc", "bền", "thích", "tuyệt", "kém", "tệ", "tạm", "ổn", "khen", "chê", "thất", "vọng", "hài", "lòng", "đáng", "phí", "xứng", "lượng", "đóng", "cẩn", "thận", "nhẹ", "nặng", "to", "nhỏ", "thật", "giả", "nhái", "chính", "hãng", "hình", "ảnh", "video"
         ]
         real_count = sum(1 for kw in real_keywords if kw in text_lower)
         
-        # Rác loại 1: Thơ ca, truyện, bài đăng quảng cáo dán vào (Quá dài, ít từ khóa)
         if len(text_lower) > 200 and real_count < 5:
             return True
         if len(text_lower) > 100 and real_count == 0:
             return True
             
-        # Rác loại 2: Đánh giá lấy xu (Chứa từ khóa xin xu)
         if any(kw in text_lower for kw in ["nhận xu", "lấy xu", "săn xu", "mang tính chất", "chống trôi", "hình ảnh mang tính"]):
             if real_count < 2 and not (len(text_lower) > 50 and real_count >= 1): 
                 return True
             
-        # Rác loại 3: Quá ngắn vô nghĩa
         if len(text_lower.strip()) < 5: return True
 
-        # Lớp 2: Mô hình AI Spam Filter (Quét lần cuối các bình luận có vẻ như là thật)
         if spam_station:
             return spam_station.is_spam(text)
             
         return False
 
-    # Chỉ lấy đủ MAX_COMMENTS bình luận KHÔNG phải rác
     import random
+    MAX_COMMENTS = 100
+    
+    random.seed(42)
+    shuffled_comments = comments.copy()
+    random.shuffle(shuffled_comments)
+
     valid_comments = []
-    for cmt in comments:
+    for cmt in shuffled_comments:
         if not is_spam(cmt):
             valid_comments.append(cmt)
-            
-    MAX_COMMENTS = 250 # Giới hạn số lượng để PhoBERT chạy không bị quá tải
-    if len(valid_comments) > MAX_COMMENTS:
-        random.seed(42) # Để kết quả ổn định khi f5
-        valid_comments = random.sample(valid_comments, MAX_COMMENTS)
+            if len(valid_comments) >= MAX_COMMENTS:
+                break
+                
             
     result_data["overview"]["total_analyzed_comments"] = len(valid_comments)
 
     overview_khen = 0
     overview_che = 0
 
-    for cmt in valid_comments:
-        # Predict uses CPU so it takes time per comment
-        prediction = ai_station.predict(cmt)
+    batch_predictions = ai_station.predict_batch(valid_comments, batch_size=32)
+
+    for idx, cmt in enumerate(valid_comments):
+        prediction = batch_predictions[idx]
         
         has_khen = False
         has_che = False
 
-        # Aggregate statistics
         for aspect in result_data["aspects"]:
             sentiment = prediction.get(aspect)
             formatted_cmt = format_highlight(cmt)
@@ -271,13 +244,11 @@ def analyze_product(request: AnalyzeRequest):
             else:
                 result_data["aspects"][aspect]["stats"]["Không nhắc tới"] += 1
                 
-        # Một bình luận có thể khen khía cạnh này nhưng chê khía cạnh kia
         if has_khen:
             overview_khen += 1
         if has_che:
             overview_che += 1
 
-    # 3. Tính toán Verdict tổng quan dựa trên số bình luận KHEN và CHÊ
     if overview_khen > overview_che:
         verdict_html = "<span class='verdict-good'>🟢 Rất Đáng Mua</span>"
     elif overview_che > overview_khen:
@@ -289,13 +260,11 @@ def analyze_product(request: AnalyzeRequest):
     result_data["overview"]["total_khen"] = overview_khen
     result_data["overview"]["total_che"] = overview_che
 
-    # 4. Yêu cầu Gemini tóm tắt và lọc bình luận cho từng khía cạnh (CHẠY SONG SONG)
     import concurrent.futures
 
     def summarize_aspect(aspect_key):
-        #lấy danh sách bình luận khen và chê cho từng khía cạnh mỗi cái 15 bình luận
-        pos_list = list(dict.fromkeys(result_data["aspects"][aspect_key]["highlights"]["positive"]))[:15]
-        neg_list = list(dict.fromkeys(result_data["aspects"][aspect_key]["highlights"]["negative"]))[:15]
+        pos_list = list(dict.fromkeys(result_data["aspects"][aspect_key]["highlights"]["positive"]))[:10]
+        neg_list = list(dict.fromkeys(result_data["aspects"][aspect_key]["highlights"]["negative"]))[:10]
         vi_name = result_data["aspects"][aspect_key]["name"]
         
         if summarizer and (pos_list or neg_list):
@@ -303,7 +272,6 @@ def analyze_product(request: AnalyzeRequest):
                 gemini_data = summarizer.summarize_and_extract(vi_name, pos_list, neg_list)
                 result_data["aspects"][aspect_key]["summary"] = gemini_data.get("summary", "Không thể tóm tắt.")
                 
-                # Ghi đè lại ý kiến tiêu biểu bằng kết quả cắt tỉa của Gemini
                 if gemini_data.get("positive_highlights"):
                     result_data["aspects"][aspect_key]["highlights"]["positive"] = gemini_data["positive_highlights"]
                 else:
@@ -323,7 +291,6 @@ def analyze_product(request: AnalyzeRequest):
             result_data["aspects"][aspect_key]["highlights"]["positive"] = pos_list[:5]
             result_data["aspects"][aspect_key]["highlights"]["negative"] = neg_list[:5]
 
-    # Thực thi đa luồng (Tối đa 4 luồng cho 4 khía cạnh)
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         futures = [executor.submit(summarize_aspect, aspect) for aspect in result_data["aspects"]]
         concurrent.futures.wait(futures)

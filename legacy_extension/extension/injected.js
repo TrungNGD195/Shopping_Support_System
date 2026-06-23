@@ -47,7 +47,7 @@
         }
     }
 
-    async function crawlAndDownload(shopid, itemid) {
+    async function crawlAndDownload(shopid, itemid, isAutoCrawl = false) {
         const allReviews = [];
         const limit = 50;
         const maxEmptyRetries = 3;
@@ -210,13 +210,19 @@
             reviews: allReviews
         };
         
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = `shopee_reviews_${shopid}_${itemid}.json`;
-        a.click();
-        URL.revokeObjectURL(blobUrl);
+        if (isAutoCrawl && window.opener) {
+            notification.innerHTML = `✅ Đã crawl xong. Đang gửi dữ liệu về Web App...`;
+            window.opener.postMessage({ type: 'SHOPEE_CRAWL_RESULT', data: exportData }, '*');
+            setTimeout(() => window.close(), 1500);
+        } else {
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `shopee_reviews_${shopid}_${itemid}.json`;
+            a.click();
+            URL.revokeObjectURL(blobUrl);
+        }
         
         // Hiển thị phân bố trên notification
         const distText = `5⭐:${starCounts[5]} 4⭐:${starCounts[4]} 3⭐:${starCounts[3]} 2⭐:${starCounts[2]} 1⭐:${starCounts[1]}`;
@@ -228,4 +234,21 @@
     }
     
     console.log('[Shopee Crawler] Injected script ready!');
+    
+    // Auto Crawl Trigger
+    if (window.location.search.includes('auto_crawl=true')) {
+        setTimeout(() => {
+            const url = window.location.href;
+            let shopid, itemid;
+            const m1 = url.match(/i\.(\d+)\.(\d+)/);
+            if (m1) {
+                shopid = m1[1];
+                itemid = m1[2];
+            }
+            if (shopid && itemid) {
+                console.log("[Shopee Crawler] Auto crawling initiated");
+                crawlAndDownload(shopid, itemid, true);
+            }
+        }, 1500); // Đợi trang load 1.5s
+    }
 })();

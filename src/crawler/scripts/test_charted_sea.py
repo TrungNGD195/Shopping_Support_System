@@ -12,7 +12,6 @@ load_dotenv()
 BEARER_TOKEN = os.getenv("BEARER_TOKEN")
 BASE_URL = "https://continuous-scraper.common.chartedapi.com/scraping-tasks"
 
-# Test with the product page URL in the standard -i.shopid.itemid format
 test_url = "https://shopee.vn/api/v4/item_rating/get_item_rating_list?itemid=28359011110&shopid=1316099166&type=0&offset=0&limit=6"
 
 headers = {
@@ -66,7 +65,6 @@ if response.status_code == 200:
                 body_data = json.loads(resp_body) if isinstance(resp_body, str) else resp_body
                 if isinstance(body_data, dict):
                     print(f"Response body top-level keys: {list(body_data.keys())}")
-                    # Check for item_rating or ratings
                     for key in ['item_rating', 'ratings', 'data', 'item']:
                         if key in body_data:
                             sub = body_data[key]
@@ -75,7 +73,6 @@ if response.status_code == 200:
                             elif isinstance(sub, list):
                                 print(f"  '{key}' has {len(sub)} items")
                     
-                    # Print first 2000 chars to inspect structure
                     body_str = json.dumps(body_data, ensure_ascii=False, indent=2)
                     print(f"\n--- Response body preview (first 3000 chars) ---")
                     print(body_str[:3000])

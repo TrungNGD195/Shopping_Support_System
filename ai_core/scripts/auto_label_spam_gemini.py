@@ -3,7 +3,6 @@ import pandas as pd
 def is_spam_heuristic(text):
     text = str(text).lower()
     
-    # Những từ khóa báo hiệu đánh giá thật (Bổ sung thêm hàng loạt từ vựng mua sắm chung)
     real_keywords = [
         "vải", "chất", "đẹp", "xấu", "rẻ", "đắt", "màu", "size", "form", "mặc", 
         "giao", "shop", "gói", "tư", "vấn", "thơm", "xịn", "ok", "tốt", "ưng", "nhanh", "chậm",
@@ -18,20 +17,16 @@ def is_spam_heuristic(text):
                      
     real_count = sum(1 for kw in real_keywords if kw in text)
     
-    # 1. Chặn Thơ ca / Lời bài hát (Spam dài)
     if text.count('\n') >= 3 and len(text) > 80:
         if real_count < 2:
             return 0
             
-    # 2. Chặn Spam nhận xu / văn mẫu
     if any(kw in text for kw in ["nhận xu", "lấy xu", "săn xu", "mang tính chất", "chống trôi"]):
-        # Chỉ cần có 2 từ khóa mô tả sản phẩm HOẶC câu dài hơn 50 ký tự có chứa 1 từ khóa (như đánh giá bàn ủi)
         if real_count >= 2 or (len(text) > 50 and real_count >= 1):
             pass 
         else:
             return 0 
             
-    # 3. Quá ngắn và hoàn toàn vô nghĩa
     if len(text.strip()) < 5:
         return 0
         

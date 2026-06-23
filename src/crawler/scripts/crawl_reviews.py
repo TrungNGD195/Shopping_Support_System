@@ -22,7 +22,7 @@ REVIEW_API_TEMPLATE = "https://shopee.vn/api/v2/item/get_ratings?shopid={shopid}
 MAX_PAGES = 500
 MAX_RESULTS = 3000
 PAGE_SIZE = 50
-BATCH_SIZE = 5  # Products per API batch call
+BATCH_SIZE = 5 
 
 
 def parse_shopee_url(url):
@@ -93,7 +93,6 @@ def poll_all_tasks(root_uuids, max_wait=900):
     start = time.time()
 
     while time.time() - start < max_wait:
-        # Fetch root tasks in chunks (API limit)
         all_root_tasks = []
         for i in range(0, len(root_uuids), 20):
             chunk = root_uuids[i:i+20]
@@ -121,7 +120,6 @@ def poll_all_tasks(root_uuids, max_wait=900):
             break
         time.sleep(15)
 
-    # Now fetch ALL tasks with full data (root + children)
     print("  Fetching full results with responseBody...")
     all_tasks = []
     for i in range(0, len(root_uuids), 10):
@@ -193,7 +191,6 @@ def main():
     products = read_urls_from_csv("data/products.csv")
     print(f"\n[INFO] {len(products)} products to crawl\n")
 
-    # Build API URLs and map them to products
     api_urls = []
     url_to_product = {}
     for prod in products:
@@ -202,7 +199,6 @@ def main():
             api_urls.append(api_url)
             url_to_product[api_url] = prod
 
-    # Phase 1: Submit in batches
     print("PHASE 1: Submitting tasks")
     print("-" * 40)
     all_root_uuids = []
@@ -225,14 +221,11 @@ def main():
 
     print(f"\n[INFO] Submitted {len(all_root_uuids)} root tasks\n")
 
-    # Phase 2: Poll
     print("PHASE 2: Waiting for completion")
     print("-" * 40)
     all_tasks = poll_all_tasks(all_root_uuids, max_wait=900)
     print(f"\n[INFO] Retrieved {len(all_tasks)} total tasks (incl. paginated sub-tasks)\n")
 
-    # Group tasks by root UUID  
-    # Each root task spawns child tasks for subsequent pages
     task_groups = {}
     for task in all_tasks:
         root = task.get("parentUuid") or task.get("uuid")
@@ -240,13 +233,11 @@ def main():
             task_groups[root] = []
         task_groups[root].append(task)
 
-    # Phase 3: Extract & save
     print("PHASE 3: Saving reviews")
     print("-" * 40)
     total_reviews = 0
     results = []
 
-    # Map product to its tasks
     prod_to_tasks = {}
     for uuid in all_root_uuids:
         prod = uuid_to_product.get(uuid, {})
@@ -263,7 +254,6 @@ def main():
         tasks_for_product = prod_to_tasks.get(key, [])
         reviews, summary = extract_reviews(tasks_for_product)
         
-        # Deduplicate reviews by cmtid
         unique_reviews = list({r["cmtid"]: r for r in reviews}.values())
 
         outfile = os.path.join(OUTPUT_DIR, f"reviews_{key[0]}_{key[1]}.json")
@@ -293,7 +283,6 @@ def main():
             "total_ratings": summary.get("rating_total", 0) if summary else 0
         })
 
-    # Summary
     with open(os.path.join(OUTPUT_DIR, "_crawl_summary.json"), 'w', encoding='utf-8') as f:
         json.dump({
             "crawl_time": time.strftime("%Y-%m-%d %H:%M:%S"),
