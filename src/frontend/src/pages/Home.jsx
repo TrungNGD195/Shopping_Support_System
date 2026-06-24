@@ -36,9 +36,51 @@ const Home = () => {
     if (!url.trim()) return;
 
     setIsLoading(true);
-    setTimeout(() => {
-      navigate(`/analyze?url=${encodeURIComponent(url)}`, { state: { reviews_data: reviewsData } });
-    }, 800);
+    
+    // Nếu là link Shopee và không upload file JSON thì tự động gọi Extension crawl
+    if (url.includes('shopee.vn') && !reviewsData) {
+      const autoCrawlUrl = url.includes('?') ? `${url}&auto_crawl=true` : `${url}?auto_crawl=true`;
+      
+      // Mở tab shopee dạng popup nhỏ để extension bắt đầu làm việc
+      const popup = window.open(autoCrawlUrl, 'ShopeeAutoCrawl', 'width=800,height=600,left=100,top=100');
+      
+      if (!popup) {
+        alert("Vui lòng cho phép popup để hệ thống tự động cào dữ liệu Shopee!");
+        setIsLoading(false);
+        return;
+      }
+      
+      const timeout = setTimeout(() => {
+        setIsLoading(false);
+        alert("Quá thời gian cào dữ liệu (5 phút) hoặc Extension chưa được cài đặt / không phản hồi.");
+        if (popup && !popup.closed) popup.close();
+        window.removeEventListener('message', messageListener);
+      }, 300000); // 5 phút
+
+      const messageListener = (event) => {
+        // Chỉ nhận tin nhắn từ extension
+        if (event.data && event.data.type === 'SHOPEE_CRAWL_RESULT') {
+          clearTimeout(timeout);
+          setIsLoading(false);
+          window.removeEventListener('message', messageListener);
+          
+          if (popup && !popup.closed) {
+              popup.close();
+          }
+          
+          const extractedReviews = event.data.data.reviews || [];
+          // Chuyển hướng sang trang analyze
+          navigate(`/analyze?url=${encodeURIComponent(url)}`, { state: { reviews_data: extractedReviews } });
+        }
+      };
+      
+      window.addEventListener('message', messageListener);
+      
+    } else {
+      setTimeout(() => {
+        navigate(`/analyze?url=${encodeURIComponent(url)}`, { state: { reviews_data: reviewsData } });
+      }, 800);
+    }
   };
 
   return (
